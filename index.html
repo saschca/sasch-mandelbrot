@@ -1,0 +1,696 @@
+<!-- ===== Mandelbrot Dive Background + Logo/Text Overlay (raised, lighter, mobile-tuned) ===== -->
+<div id="mandelbrot-bg" style="position:fixed; inset:0; z-index:-1; pointer-events:none;">
+  <canvas id="mb-canvas" style="width:100%; height:100%; display:block;"></canvas>
+</div>
+
+<style>
+  :root{
+    --hero-top-desktop: 12vh;   /* desktop vertical position */
+    --hero-top-mobile: 8vh;     /* mobile vertical position */
+    --text-alpha: 0.65;         /* overall text opacity */
+    --shadow-alpha: 0.15;       /* subtle shadow */
+  }
+
+  .hero-overlay{
+    position:fixed; inset:0; z-index:5; pointer-events:none;
+    display:grid; place-items:start center; padding:0 4vw;
+    padding-top: env(safe-area-inset-top, 0px);
+  }
+  .hero-box{
+    margin-top: var(--hero-top-desktop);
+    text-align:center; color:rgba(255,255,255,var(--text-alpha));
+    max-width:1100px; width:100%; line-height:1.28;
+  }
+  .hero-logo{
+    width:min(15vw,160px); height:auto; margin:0 auto 1.2vh auto; display:block; opacity:0;
+    animation:fadeUp 900ms ease-out 200ms forwards;
+    filter:drop-shadow(0 1px 5px rgba(0,0,0,.25));
+  }
+  .hero-line{
+    font-weight:300; letter-spacing:.01em; opacity:0; transform:translateY(5px);
+    text-shadow:0 1px 5px rgba(0,0,0,var(--shadow-alpha));
+  }
+  .l2{ font-size:clamp(14px,1.6vw,20px); animation:fadeUp 700ms ease-out 1200ms forwards; }
+  .l3{ font-size:clamp(14px,1.6vw,20px); animation:fadeUp 700ms ease-out 2200ms forwards; }
+  .l4{ font-size:clamp(14px,1.6vw,20px); animation:fadeUp 700ms ease-out 3200ms forwards; }
+
+  /* Mobile */
+  @media (max-width: 768px){
+    .hero-box{ margin-top: var(--hero-top-mobile); }
+    .hero-logo{ width:min(38vw,140px); }
+    .l2, .l3, .l4{ font-size:clamp(13px,4vw,18px); }
+  }
+
+  @keyframes fadeUp{
+    from{ opacity:0; transform:translateY(10px); }
+    to{ opacity:1; transform:translateY(0); }
+  }
+
+  @media (prefers-reduced-motion: reduce){
+    .hero-logo,.hero-line{ animation:none; opacity:1; transform:none; }
+  }
+</style>
+
+<div class="hero-overlay">
+  <div class="hero-box">
+    <img class="hero-logo" src="https://sasch.odoo.com/web/image/website/1/logo/sasch.ca?unique=83efd14" alt="sASCH logo">
+    <div class="hero-line l2">Technology Solutions</div>
+    <div class="hero-line l3">Automation</div>
+    <div class="hero-line l4">Innovative Projects</div>
+  </div>
+</div>
+
+<script>
+(function () {
+  const SETTINGS = {
+    DPR_CAP: 1.25,
+    FPS: 30,
+    START_SCALE: 3.0,
+    END_SCALE: 1e-6,
+    DIVE_SECONDS: 36,
+    ROT_SPEED: 0.02,
+    ITER_MIN: 60,
+    ITER_MAX: 600,
+    MOTION_OK: !window.matchMedia('(prefers-reduced-motion: reduce)').matches
+  };
+
+  const canvas = document.getElementById('mb-canvas');
+  const gl = canvas.getContext('webgl', { antialias:false, preserveDrawingBuffer:false });
+  if (!gl || !SETTINGS.MOTION_OK) { return; }
+
+  const vs = `
+    attribute vec2 a_pos;
+    void main(){ gl_Position = vec4(a_pos,0.0,1.0); }
+  `;
+  const fs = `
+    precision highp float;
+    uniform vec2 u_res;
+    uniform vec2 u_center;
+    uniform float u_scale;
+    uniform float u_rot;
+    uniform float u_iter;
+    uniform float u_time;
+
+    vec3 palette(float t){
+      float v = mix(0.5, 0.0, t); /* t=0 mid-grey, t=1 black */
+      return vec3(v);
+    }
+
+    void main(){
+      vec2 p = (gl_FragCoord.xy - 0.5*u_res) / u_res.y;
+      float cs = cos(u_rot), sn = sin(u_rot);
+      vec2 pr = mat2(cs, -sn, sn, cs) * p;
+      vec2 c = u_center + pr * u_scale;
+
+      vec2 z = vec2(0.0);
+      float m2 = 0.0;
+      float it = 0.0;
+      float maxIter = u_iter;
+      const float ESC = 256.0;
+      bool escaped = false;
+
+      for (int i = 0; i < 1200; i++) {
+        if (it >= maxIter) break;
+        vec2 z2 = vec2(z.x*z.x - z.y*z.y, 2.0*z.x*z.y) + c;
+        z = z2;
+        m2 = dot(z,z);
+        it += 1.0;
+        if (m2 > ESC) { escaped = true; break; }
+      }
+
+      if (!escaped) {
+        gl_FragColor = vec4(0.0, 0.0, 0.0, 1.0);
+        return;
+      }
+
+      float mu = it - log2(log2(m2));
+      float tcol = clamp(mu / maxIter, 0.0, 1.0);
+      vec3 col = palette(tcol);
+      gl_FragColor = vec4(col, 1.0);
+    }
+  `;
+
+  function make(gl, type, src){
+    const s = gl.createShader(type);
+    gl.shaderSource(s, src);
+    gl.compileShader(s);
+    if(!gl.getShaderParameter(s, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(s));
+    return s;
+  }
+  const prog = gl.createProgram();
+  gl.attachShader(prog, make(gl, gl.VERTEX_SHADER, vs));
+  gl.attachShader(prog, make(gl, gl.FRAGMENT_SHADER, fs));
+  gl.linkProgram(prog);
+  if(!gl.getProgramParameter(prog, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(prog));
+  gl.useProgram(prog);
+
+  const buf = gl.createBuffer();
+  gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([
+    -1,-1,  1,-1, -1, 1,
+     1,-1,  1, 1, -1, 1
+  ]), gl.STATIC_DRAW);
+  const loc = {
+    a_pos: gl.getAttribLocation(prog, 'a_pos'),
+    u_res: gl.getUniformLocation(prog, 'u_res'),
+    u_center: gl.getUniformLocation(prog, 'u_center'),
+    u_scale: gl.getUniformLocation(prog, 'u_scale'),
+    u_rot: gl.getUniformLocation(prog, 'u_rot'),
+    u_iter: gl.getUniformLocation(prog, 'u_iter'),
+    u_time: gl.getUniformLocation(prog, 'u_time')
+  };
+  gl.enableVertexAttribArray(loc.a_pos);
+  gl.vertexAttribPointer(loc.a_pos, 2, gl.FLOAT, false, 0, 0);
+
+  function resize(){
+    const dpr = Math.min(window.devicePixelRatio || 1, SETTINGS.DPR_CAP);
+    const w = Math.floor(canvas.clientWidth * dpr);
+    const h = Math.floor(canvas.clientHeight * dpr);
+    if (canvas.width !== w || canvas.height !== h) {
+      canvas.width = w; canvas.height = h;
+      gl.viewport(0,0,w,h);
+    }
+  }
+  const rsObs = new ResizeObserver(resize);
+  rsObs.observe(canvas);
+
+  const spots = [
+    [-0.743643887037151, 0.13182590420533],
+    [-0.74529, 0.11272],
+    [-1.25066, 0.02012],
+    [-0.77568377, 0.13646737],
+    [0.001643721971153, -0.822467633298876]
+  ];
+  let center = spots[Math.floor(Math.random()*spots.length)].slice();
+
+  function pickNewCenter(prev){
+    let c;
+    do { c = spots[Math.floor(Math.random()*spots.length)].slice(); }
+    while (Math.hypot(c[0]-prev[0], c[1]-prev[1]) < 1e-6);
+    return c;
+  }
+
+  let diveStart = performance.now() / 1000;
+  let startScale = SETTINGS.START_SCALE;
+  const speed = Math.log(startScale / SETTINGS.END_SCALE) / SETTINGS.DIVE_SECONDS;
+
+  const frameInterval = 1 / SETTINGS.FPS;
+  let acc = 0;
+  let last = performance.now() / 1000;
+
+  function drawFrame(now){
+    resize();
+    const tsec = now - diveStart;
+    const scale = startScale * Math.exp(-speed * Math.max(0, tsec));
+    const rot = SETTINGS.ROT_SPEED * (now - diveStart);
+
+    const iterHint = Math.min(
+      SETTINGS.ITER_MAX,
+      SETTINGS.ITER_MIN + Math.log2(Math.max(1, startScale/scale))*24.0
+    );
+
+    gl.uniform2f(loc.u_res, canvas.width, canvas.height);
+    gl.uniform2f(loc.u_center, center[0], center[1]);
+    gl.uniform1f(loc.u_scale, scale);
+    gl.uniform1f(loc.u_rot, rot);
+    gl.uniform1f(loc.u_iter, iterHint);
+    gl.uniform1f(loc.u_time, now);
+
+    gl.drawArrays(gl.TRIANGLES, 0, 6);
+
+    if (tsec > SETTINGS.DIVE_SECONDS) {
+      center = pickNewCenter(center);
+      diveStart = now;
+      startScale = SETTINGS.START_SCALE;
+    }
+  }
+
+  let rafId;
+  function loop(){
+    const now = performance.now() / 1000;
+    const dt = now - last;
+    last = now;
+    acc += dt;
+    if (acc >= frameInterval) {
+      drawFrame(now);
+      acc = acc % frameInterval;
+    }
+    rafId = requestAnimationFrame(loop);
+  }
+  rafId = requestAnimationFrame(loop);
+
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) cancelAnimationFrame(rafId);
+    else { last = performance.now() / 1000; acc = 0; rafId = requestAnimationFrame(loop); }
+  });
+})();
+    </script><!-- ===== Mandelbrot Dive Background + Logo/Text Overlay (raised, lighter, mobile-tuned) ===== -->
+<div id="mandelbrot-bg" style="position:fixed; inset:0; z-index:-1; pointer-events:none;">
+  <canvas id="mb-canvas" style="width:100%; height:100%; display:block;"></canvas>
+</div>
+
+<style>
+  :root{
+    --hero-top-desktop: 12vh;
+    --hero-top-mobile: 8vh;
+    --text-alpha: 0.65;
+    --shadow-alpha: 0.15;
+  }
+
+  .hero-overlay{
+    position:fixed; inset:0; z-index:5; pointer-events:none;
+    display:grid; place-items:start center; padding:0 4vw;
+    padding-top: env(safe-area-inset-top, 0px);
+  }
+  .hero-box{
+    margin-top: var(--hero-top-desktop);
+    text-align:center; color:rgba(255,255,255,var(--text-alpha));
+    max-width:1100px; width:100%; line-height:1.28;
+  }
+  .hero-logo{
+    width:min(15vw,160px); height:auto; margin:0 auto 1.2vh auto; display:block; opacity:0;
+    animation:fadeUp 900ms ease-out 200ms forwards;
+    filter:drop-shadow(0 1px 5px rgba(0,0,0,.25));
+  }
+  .hero-line{
+    font-weight:300; letter-spacing:.01em; opacity:0; transform:translateY(5px);
+    text-shadow:0 1px 5px rgba(0,0,0,var(--shadow-alpha));
+  }
+  .l2{ font-size:clamp(14px,1.6vw,20px); animation:fadeUp 700ms ease-out 1200ms forwards; }
+  .l3{ font-size:clamp(14px,1.6vw,20px); animation:fadeUp 700ms ease-out 2200ms forwards; }
+  .l4{ font-size:clamp(14px,1.6vw,20px); animation:fadeUp 700ms ease-out 3200ms forwards; }
+
+  @media (max-width: 768px){
+    .hero-box{ margin-top: var(--hero-top-mobile); }
+    .hero-logo{ width:min(38vw,140px); }
+    .l2, .l3, .l4{ font-size:clamp(13px,4vw,18px); }
+  }
+
+  @keyframes fadeUp{
+    from{ opacity:0; transform:translateY(10px); }
+    to{ opacity:1; transform:translateY(0); }
+  }
+
+  @media (prefers-reduced-motion: reduce){
+    .hero-logo,.hero-line{ animation:none; opacity:1; transform:none; }
+  }
+</style>
+
+<div class="hero-overlay">
+  <div class="hero-box">
+    <img class="hero-logo" src="https://sasch.odoo.com/web/image/website/1/logo/sasch.ca?unique=83efd14" alt="sASCH logo">
+    <div class="hero-line l2">Technology Solutions</div>
+    <div class="hero-line l3">Automation</div>
+    <div class="hero-line l4">Innovative Projects</div>
+  </div>
+</div>
+
+<script>
+/* ===== Base Mandelbrot renderer (unchanged visuals) ===== */
+(function () {
+  const SETTINGS = {
+    DPR_CAP: 1.25,
+    FPS: 30,
+    START_SCALE: 3.0,
+    END_SCALE: 1e-6,
+    DIVE_SECONDS: 36,
+    ROT_SPEED: 0.02,
+    ITER_MIN: 60,
+    ITER_MAX: 600,
+    MOTION_OK: !window.matchMedia('(prefers-reduced-motion: reduce)').matches
+  };
+
+  const canvas = document.getElementById('mb-canvas');
+  const gl = canvas.getContext('webgl', { antialias:false, preserveDrawingBuffer:false });
+  if (!gl || !SETTINGS.MOTION_OK) { return; }
+
+  const vs = `
+    attribute vec2 a_pos;
+    void main(){ gl_Position = vec4(a_pos,0.0,1.0); }
+  `;
+  const fs = `
+    precision highp float;
+    uniform vec2 u_res;
+    uniform vec2 u_center;
+    uniform float u_scale;
+    uniform float u_rot;
+    uniform float u_iter;
+    uniform float u_time;
+
+    vec3 palette(float t){
+      float v = mix(0.5, 0.0, t);
+      return vec3(v);
+    }
+
+    void main(){
+      vec2 p = (gl_FragCoord.xy - 0.5*u_res) / u_res.y;
+      float cs = cos(u_rot), sn = sin(u_rot);
+      vec2 pr = mat2(cs, -sn, sn, cs) * p;
+      vec2 c = u_center + pr * u_scale;
+
+      vec2 z = vec2(0.0);
+      float m2 = 0.0;
+      float it = 0.0;
+      float maxIter = u_iter;
+      const float ESC = 256.0;
+      bool escaped = false;
+
+      for (int i = 0; i < 1200; i++) {
+        if (it >= maxIter) break;
+        vec2 z2 = vec2(z.x*z.x - z.y*z.y, 2.0*z.x*z.y) + c;
+        z = z2;
+        m2 = dot(z,z);
+        it += 1.0;
+        if (m2 > ESC) { escaped = true; break; }
+      }
+
+      if (!escaped) { gl_FragColor = vec4(0.0,0.0,0.0,1.0); return; }
+
+      float mu = it - log2(log2(m2));
+      float tcol = clamp(mu / maxIter, 0.0, 1.0);
+      vec3 col = palette(tcol);
+      gl_FragColor = vec4(col, 1.0);
+    }
+  `;
+
+  function make(gl, type, src){
+    const s = gl.createShader(type);
+    gl.shaderSource(s, src);
+    gl.compileShader(s);
+    if(!gl.getShaderParameter(s, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(s));
+    return s;
+  }
+  const prog = gl.createProgram();
+  gl.attachShader(prog, make(gl, gl.VERTEX_SHADER, vs));
+  gl.attachShader(prog, make(gl, gl.FRAGMENT_SHADER, fs));
+  gl.linkProgram(prog);
+  if(!gl.getProgramParameter(prog, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(prog));
+  gl.useProgram(prog);
+
+  const buf = gl.createBuffer();
+  gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([
+    -1,-1,  1,-1, -1, 1,
+     1,-1,  1, 1, -1, 1
+  ]), gl.STATIC_DRAW);
+  const loc = {
+    a_pos: gl.getAttribLocation(prog, 'a_pos'),
+    u_res: gl.getUniformLocation(prog, 'u_res'),
+    u_center: gl.getUniformLocation(prog, 'u_center'),
+    u_scale: gl.getUniformLocation(prog, 'u_scale'),
+    u_rot: gl.getUniformLocation(prog, 'u_rot'),
+    u_iter: gl.getUniformLocation(prog, 'u_iter'),
+    u_time: gl.getUniformLocation(prog, 'u_time')
+  };
+  gl.enableVertexAttribArray(loc.a_pos);
+  gl.vertexAttribPointer(loc.a_pos, 2, gl.FLOAT, false, 0, 0);
+
+  function resize(){
+    const dpr = Math.min(window.devicePixelRatio || 1, SETTINGS.DPR_CAP);
+    const w = Math.floor(canvas.clientWidth * dpr);
+    const h = Math.floor(canvas.clientHeight * dpr);
+    if (canvas.width !== w || canvas.height !== h) {
+      canvas.width = w; canvas.height = h;
+      gl.viewport(0,0,w,h);
+    }
+  }
+  const rsObs = new ResizeObserver(resize);
+  rsObs.observe(canvas);
+
+  const spots = [
+    [-0.743643887037151, 0.13182590420533],
+    [-0.74529, 0.11272],
+    [-1.25066, 0.02012],
+    [-0.77568377, 0.13646737],
+    [0.001643721971153, -0.822467633298876]
+  ];
+  let center = spots[Math.floor(Math.random()*spots.length)].slice();
+
+  function pickNewCenter(prev){
+    let c;
+    do { c = spots[Math.floor(Math.random()*spots.length)].slice(); }
+    while (Math.hypot(c[0]-prev[0], c[1]-prev[1]) < 1e-6);
+    return c;
+  }
+
+  let diveStart = performance.now() / 1000;
+  let startScale = SETTINGS.START_SCALE;
+  const baseSpeed = Math.log(startScale / SETTINGS.END_SCALE) / SETTINGS.DIVE_SECONDS;
+
+  const frameInterval = 1 / SETTINGS.FPS;
+  let acc = 0;
+  let last = performance.now() / 1000;
+
+  /* ===== Simple internal control hooks, exposed for Expert Mode ===== */
+  let expertMode = false;
+  let speedMult = 1.0;           // controlled by Expert Mode
+  let manualScale = startScale;  // when expertMode true
+  let manualCenter = center.slice();
+  let rotOverride = null;        // if set, overrides rotation
+
+  function drawFrame(now){
+    resize();
+    const tsec = now - diveStart;
+
+    // Decide center and scale
+    let scale, rot;
+    if (expertMode) {
+      // Manual zoom progression
+      manualScale *= Math.exp(-baseSpeed * speedMult * (frameInterval));
+      scale = manualScale;
+      center = manualCenter;
+      rot = rotOverride == null ? SETTINGS.ROT_SPEED * (now - diveStart) : rotOverride;
+    } else {
+      // Auto dive
+      scale = startScale * Math.exp(-baseSpeed * Math.max(0, tsec));
+      rot = SETTINGS.ROT_SPEED * (now - diveStart);
+    }
+
+    const iterHint = Math.min(
+      SETTINGS.ITER_MAX,
+      SETTINGS.ITER_MIN + Math.log2(Math.max(1, SETTINGS.START_SCALE/scale))*24.0
+    );
+
+    gl.uniform2f(loc.u_res, canvas.width, canvas.height);
+    gl.uniform2f(loc.u_center, center[0], center[1]);
+    gl.uniform1f(loc.u_scale, scale);
+    gl.uniform1f(loc.u_rot, rot);
+    gl.uniform1f(loc.u_iter, iterHint);
+    gl.uniform1f(loc.u_time, now);
+
+    gl.drawArrays(gl.TRIANGLES, 0, 6);
+
+    if (!expertMode && tsec > SETTINGS.DIVE_SECONDS) {
+      center = pickNewCenter(center);
+      diveStart = now;
+      startScale = SETTINGS.START_SCALE;
+    }
+  }
+
+  let rafId;
+  function loop(){
+    const now = performance.now() / 1000;
+    const dt = now - last;
+    last = now;
+    acc += dt;
+    if (acc >= frameInterval) {
+      drawFrame(now);
+      acc = acc % frameInterval;
+    }
+    rafId = requestAnimationFrame(loop);
+  }
+  rafId = requestAnimationFrame(loop);
+
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) cancelAnimationFrame(rafId);
+    else { last = performance.now() / 1000; acc = 0; rafId = requestAnimationFrame(loop); }
+  });
+
+  // Expose tiny API for the add-on
+  window.MB = {
+    enableExpert(flag){
+      expertMode = !!flag;
+      // Sync manual state with current view on entry
+      if (expertMode) {
+        manualScale = startScale * Math.exp(-baseSpeed * Math.max(0, (performance.now()/1000 - diveStart)));
+        manualCenter = center.slice();
+      }
+    },
+    setSpeedMult(m){ speedMult = Math.max(0, m); },
+    getState(){ return { expertMode, center: center.slice(), scale: expertMode ? manualScale : startScale, canvas }; },
+    pan(dx, dy){ // dx,dy in screen pixels
+      const aspectScale = manualScale / canvas.height;
+      manualCenter[0] -= dx * aspectScale;
+      manualCenter[1] += dy * aspectScale;
+    },
+    zoomAt(clientX, clientY, factor){
+      // Zoom around a screen point
+      const rect = canvas.getBoundingClientRect();
+      const x = clientX - rect.left;
+      const y = clientY - rect.top;
+      const aspectScale = manualScale / canvas.height;
+      const cx = (x - canvas.width*0.5) * aspectScale;
+      const cy = (y - canvas.height*0.5) * aspectScale;
+      manualCenter[0] += cx * (1.0 - 1.0/factor);
+      manualCenter[1] -= cy * (1.0 - 1.0/factor);
+      manualScale /= factor;
+    },
+    setRotation(radians){ rotOverride = radians; },
+    resetRotation(){ rotOverride = null; }
+  };
+})();
+</script>
+
+<!-- ===== Expert Mode Add-on: toggle, zoom, pan, speed ===== -->
+<style>
+  .mb-ui{
+    position:fixed; right:12px; bottom:12px; z-index:6;
+    display:flex; gap:10px; align-items:center;
+    font: 13px/1.2 system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+    color:#eee;
+  }
+  .mb-btn{
+    pointer-events:auto; cursor:pointer;
+    background:rgba(255,255,255,.08); color:#fff; border:1px solid rgba(255,255,255,.15);
+    padding:8px 10px; border-radius:10px; backdrop-filter: blur(6px);
+  }
+  .mb-btn.active{ background:rgba(88,170,255,.25); border-color:rgba(88,170,255,.5); }
+  .mb-panel{
+    display:none; pointer-events:auto;
+    background:rgba(0,0,0,.45); border:1px solid rgba(255,255,255,.12);
+    padding:10px 12px; border-radius:12px; backdrop-filter: blur(6px);
+    min-width:220px;
+  }
+  .mb-panel.on{ display:block; }
+  .mb-row{ display:flex; align-items:center; gap:10px; margin:6px 0; }
+  .mb-row label{ flex:0 0 70px; color:#ddd; }
+  .mb-row input[type=range]{ width:140px; }
+  .mb-hint{ color:#bbb; font-size:12px; margin-top:6px; }
+</style>
+
+<div class="mb-ui" style="pointer-events:none;">
+  <button id="mb-toggle" class="mb-btn" style="pointer-events:auto;">Expert Mode</button>
+  <div id="mb-panel" class="mb-panel">
+    <div class="mb-row">
+      <label>Speed</label>
+      <input id="mb-speed" type="range" min="0" max="4" value="1" step="0.05">
+      <span id="mb-speed-val">1.0x</span>
+    </div>
+    <div class="mb-row">
+      <button id="mb-zoom-in" class="mb-btn">+</button>
+      <button id="mb-zoom-out" class="mb-btn">−</button>
+      <button id="mb-reset-rot" class="mb-btn" title="Reset rotation">⟳</button>
+    </div>
+    <div class="mb-hint">Scroll or pinch to zoom. Drag to pan. Arrow keys pan. Hold Shift for faster pan.</div>
+  </div>
+</div>
+
+<script>
+(function(){
+  if (!window.MB) return;
+
+  const toggle = document.getElementById('mb-toggle');
+  const panel = document.getElementById('mb-panel');
+  const speed = document.getElementById('mb-speed');
+  const speedVal = document.getElementById('mb-speed-val');
+  const zoomIn = document.getElementById('mb-zoom-in');
+  const zoomOut = document.getElementById('mb-zoom-out');
+  const resetRot = document.getElementById('mb-reset-rot');
+
+  let enabled = false;
+
+  function setEnabled(flag){
+    enabled = flag;
+    toggle.classList.toggle('active', enabled);
+    panel.classList.toggle('on', enabled);
+    MB.enableExpert(enabled);
+  }
+
+  toggle.addEventListener('click', () => setEnabled(!enabled));
+
+  // Speed control
+  function applySpeed(){
+    const v = parseFloat(speed.value || '1');
+    MB.setSpeedMult(v);
+    speedVal.textContent = v.toFixed(1) + 'x';
+  }
+  speed.addEventListener('input', applySpeed);
+  applySpeed();
+
+  // Zoom buttons (center of canvas)
+  function zoomButton(factor){
+    const state = MB.getState();
+    const rect = state.canvas.getBoundingClientRect();
+    MB.zoomAt(rect.left + rect.width/2, rect.top + rect.height/2, factor);
+  }
+  zoomIn.addEventListener('click', () => zoomButton(1.3));
+  zoomOut.addEventListener('click', () => zoomButton(1/1.3));
+
+  // Rotation reset
+  resetRot.addEventListener('click', () => MB.resetRotation());
+
+  // Mouse wheel zoom
+  window.addEventListener('wheel', e => {
+    if (!enabled) return;
+    const factor = e.deltaY < 0 ? 1.1 : 1/1.1;
+    MB.zoomAt(e.clientX, e.clientY, factor);
+    e.preventDefault();
+  }, { passive:false });
+
+  // Drag to pan
+  let dragging = false, lastX = 0, lastY = 0;
+  window.addEventListener('mousedown', e => { if (!enabled) return; dragging = true; lastX = e.clientX; lastY = e.clientY; });
+  window.addEventListener('mousemove', e => {
+    if (!enabled || !dragging) return;
+    MB.pan(e.clientX - lastX, e.clientY - lastY);
+    lastX = e.clientX; lastY = e.clientY;
+  });
+  window.addEventListener('mouseup', () => { dragging = false; });
+
+  // Touch support: single finger pan, pinch zoom
+  let touchZoomBase = null;
+  window.addEventListener('touchstart', e => {
+    if (!enabled) return;
+    if (e.touches.length === 1) {
+      lastX = e.touches[0].clientX; lastY = e.touches[0].clientY;
+    } else if (e.touches.length === 2) {
+      const dx = e.touches[1].clientX - e.touches[0].clientX;
+      const dy = e.touches[1].clientY - e.touches[0].clientY;
+      touchZoomBase = Math.hypot(dx, dy);
+    }
+  }, { passive:true });
+
+  window.addEventListener('touchmove', e => {
+    if (!enabled) return;
+    if (e.touches.length === 1) {
+      const x = e.touches[0].clientX, y = e.touches[0].clientY;
+      MB.pan(x - lastX, y - lastY);
+      lastX = x; lastY = y;
+    } else if (e.touches.length === 2 && touchZoomBase) {
+      const dx = e.touches[1].clientX - e.touches[0].clientX;
+      const dy = e.touches[1].clientY - e.touches[0].clientY;
+      const dist = Math.hypot(dx, dy);
+      const factor = Math.max(0.5, Math.min(2.0, dist / touchZoomBase));
+      const cx = (e.touches[0].clientX + e.touches[1].clientX)/2;
+      const cy = (e.touches[0].clientY + e.touches[1].clientY)/2;
+      MB.zoomAt(cx, cy, factor);
+      touchZoomBase = dist;
+    }
+  }, { passive:true });
+
+  window.addEventListener('touchend', () => { touchZoomBase = null; }, { passive:true });
+
+  // Arrow keys pan. Shift speeds it up.
+  window.addEventListener('keydown', e => {
+    if (!enabled) return;
+    const fast = e.shiftKey ? 40 : 15;
+    if (['ArrowLeft','ArrowRight','ArrowUp','ArrowDown','+','-','=','_'].includes(e.key)) e.preventDefault();
+    if (e.key === 'ArrowLeft')  MB.pan(-fast, 0);
+    if (e.key === 'ArrowRight') MB.pan(fast, 0);
+    if (e.key === 'ArrowUp')    MB.pan(0, -fast);
+    if (e.key === 'ArrowDown')  MB.pan(0, fast);
+    if (e.key === '+' || e.key === '=') zoomButton(1.15);
+    if (e.key === '-' || e.key === '_') zoomButton(1/1.15);
+  });
+})();
+</script>
