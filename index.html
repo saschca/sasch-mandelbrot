@@ -4,872 +4,442 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
 <meta name="theme-color" content="#050810" />
-<meta name="description" content="sASCH — Technology Solutions, Automation, Innovative Projects." />
-<title>sASCH – Mandelbrot</title>
+<meta name="description" content="sASCH" />
+<title>sASCH</title>
 <style>
-  /* ============================================================
-     Palette + layout tokens
-     ============================================================ */
   :root{
-    --ink:#050810;
-    --hero-top-desktop: 13vh;
-    --hero-top-mobile: 9vh;
-    --text-alpha: 0.80;
-    --font: ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI",
-            Inter, Roboto, Helvetica, Arial, sans-serif;
+    --font: ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, Roboto, Helvetica, Arial, sans-serif;
   }
 
-  html{ height:100%; }
+  *{ box-sizing:border-box; }
+  html,body{ width:100%; height:100%; margin:0; overflow:hidden; }
   body{
-    height:100%; margin:0; color-scheme:dark;
-    font-family: var(--font);
-    /* Painted behind the canvas: the page still looks intentional
-       if WebGL is unavailable or the canvas has not drawn yet. */
-    background:
-      radial-gradient(125% 90% at 50% 0%, #101c38 0%, #070c18 46%, #04060d 100%);
+    font-family:var(--font);
+    color:#fff;
+    background:#050810;
   }
 
-  /* ---------- Background canvas ---------- */
-  #mandelbrot-bg{ position:fixed; inset:0; z-index:0; pointer-events:none; }
-  #mb-canvas{
-    width:100%; height:100%; display:block;
-    opacity:0; transition:opacity 1200ms ease-out;
+  #mandelbrot-bg{
+    position:fixed;
+    inset:0;
+    z-index:0;
   }
+
+  #mb-canvas{
+    width:100%;
+    height:100%;
+    display:block;
+    opacity:0;
+    transition:opacity 900ms ease;
+    touch-action:none;
+  }
+
   #mb-canvas.ready{ opacity:1; }
 
-  /* ---------- Scrim: vignette + top wash, keeps text legible ---------- */
   .scrim{
-    position:fixed; inset:0; z-index:2; pointer-events:none;
+    position:fixed;
+    inset:0;
+    z-index:1;
+    pointer-events:none;
     background:
-      radial-gradient(125% 78% at 50% 44%,
-        rgba(4,6,13,0) 30%, rgba(4,6,13,.30) 72%, rgba(4,6,13,.66) 100%),
-      linear-gradient(to bottom,
-        rgba(4,6,13,.66) 0%, rgba(4,6,13,.30) 20%, rgba(4,6,13,0) 42%);
+      linear-gradient(to bottom, rgba(3,6,14,.66) 0%, rgba(3,6,14,.25) 15%, rgba(3,6,14,0) 34%),
+      radial-gradient(120% 90% at 50% 50%, rgba(3,6,14,0) 52%, rgba(3,6,14,.38) 100%);
   }
 
-  /* ---------- Overlay (logo + 3 lines) ---------- */
-  .hero-overlay{
-    position:fixed; inset:0; z-index:5; pointer-events:none;
-    display:grid; place-items:start center; padding:0 4vw;
-    padding-top: env(safe-area-inset-top, 0px);
-  }
-  .hero-box{
-    margin-top: var(--hero-top-desktop);
-    text-align:center; color:rgba(255,255,255,var(--text-alpha));
-    max-width:1100px; width:100%; line-height:1.5;
-  }
-  .hero-logo{
-    width:min(15vw,160px); height:auto; margin:0 auto 2.2vh auto; display:block; opacity:0;
-    animation:fadeUp 1100ms cubic-bezier(.22,.61,.36,1) 250ms forwards;
-    filter:drop-shadow(0 2px 14px rgba(0,0,0,.45));
-  }
-  .hero-line{
-    font-weight:300; font-size:clamp(14px,1.6vw,20px);
-    letter-spacing:.14em; text-transform:uppercase;
-    opacity:0; transform:translateY(8px);
-    text-shadow:0 1px 16px rgba(0,0,0,.55);
-    animation:fadeUp 900ms cubic-bezier(.22,.61,.36,1) forwards;
-  }
-  .l2{ animation-delay: 900ms; }
-  .l3{ animation-delay: 1600ms; }
-  .l4{ animation-delay: 2300ms; }
-
-  @media (max-width: 768px){
-    .hero-box{ margin-top: var(--hero-top-mobile); }
-    .hero-logo{ width:min(38vw,140px); }
-    .hero-line{ font-size:clamp(12px,3.6vw,17px); letter-spacing:.12em; }
+  .site-nav{
+    position:fixed;
+    z-index:5;
+    top:0;
+    left:0;
+    right:0;
+    min-height:92px;
+    padding:calc(20px + env(safe-area-inset-top, 0px)) clamp(20px,4vw,64px) 18px;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:28px;
+    user-select:none;
   }
 
-  @keyframes fadeUp{ from{opacity:0;transform:translateY(12px);} to{opacity:1;transform:translateY(0);} }
-  @media (prefers-reduced-motion: reduce){
-    .hero-logo,.hero-line{ animation:none; opacity:1; transform:none; }
+  .brand{
+    color:rgba(255,255,255,.94);
+    text-decoration:none;
+    font-size:14px;
+    font-weight:650;
+    letter-spacing:.22em;
+    text-transform:uppercase;
+    text-shadow:0 2px 16px rgba(0,0,0,.45);
+  }
+
+  .nav-links{
+    display:flex;
+    align-items:center;
+    gap:clamp(18px,3vw,42px);
+  }
+
+  .nav-links a{
+    position:relative;
+    color:rgba(255,255,255,.72);
+    text-decoration:none;
+    font-size:12px;
+    font-weight:500;
+    letter-spacing:.14em;
+    text-transform:uppercase;
+    text-shadow:0 2px 14px rgba(0,0,0,.5);
+    transition:color 180ms ease;
+  }
+
+  .nav-links a::after{
+    content:"";
+    position:absolute;
+    left:0;
+    right:100%;
+    bottom:-8px;
+    height:1px;
+    background:rgba(255,255,255,.72);
+    transition:right 180ms ease;
+  }
+
+  .nav-links a:hover,
+  .nav-links a:focus-visible{ color:#fff; }
+  .nav-links a:hover::after,
+  .nav-links a:focus-visible::after{ right:0; }
+  .nav-links a:focus-visible{ outline:none; }
+
+  @media (max-width:700px){
+    .site-nav{
+      min-height:78px;
+      padding:calc(16px + env(safe-area-inset-top, 0px)) 18px 14px;
+      gap:18px;
+    }
+    .brand{ font-size:12px; }
+    .nav-links{ gap:14px; }
+    .nav-links a{ font-size:10px; letter-spacing:.09em; }
+    .nav-links a:nth-child(3){ display:none; }
+  }
+
+  @media (prefers-reduced-motion:reduce){
     #mb-canvas{ transition:none; }
-  }
-
-  /* ---------- Expert mode UX fixes ---------- */
-  .mb-expert{ overscroll-behavior:none; }
-  .mb-expert #mandelbrot-bg{ pointer-events:auto; }
-  .mb-expert #mb-canvas{ touch-action:none; cursor:grab; }
-  .mb-expert.mb-dragging #mb-canvas{ cursor:grabbing; }
-
-  /* ---------- Expert UI ---------- */
-  .mb-ui{
-    position:fixed; right:14px; bottom:14px; z-index:6;
-    display:flex; gap:10px; align-items:flex-end;
-    font: 13px/1.25 var(--font);
-    color:#e8eefc; pointer-events:none;
-  }
-  .mb-btn{
-    pointer-events:auto; cursor:pointer; font:inherit; color:#eaf1ff;
-    background:rgba(160,190,255,.09);
-    border:1px solid rgba(180,205,255,.18);
-    padding:8px 12px; border-radius:11px;
-    -webkit-backdrop-filter:blur(10px); backdrop-filter:blur(10px);
-    transition:opacity .35s ease, background .25s ease, border-color .25s ease, transform .18s ease;
-  }
-  .mb-btn:hover{ background:rgba(160,190,255,.16); border-color:rgba(180,205,255,.32); }
-  .mb-btn:active{ transform:translateY(1px); }
-  .mb-btn:focus-visible{ outline:2px solid rgba(120,170,255,.75); outline-offset:2px; }
-  /* Sits back quietly until you reach for it. */
-  #mb-toggle{ opacity:.42; }
-  #mb-toggle:hover, #mb-toggle:focus-visible, #mb-toggle.active{ opacity:1; }
-  .mb-btn.active{ background:rgba(88,150,255,.24); border-color:rgba(120,175,255,.48); }
-
-  .mb-panel{
-    display:none; pointer-events:auto;
-    background:rgba(6,10,20,.58); border:1px solid rgba(180,205,255,.14);
-    padding:12px 14px; border-radius:14px;
-    -webkit-backdrop-filter:blur(12px); backdrop-filter:blur(12px);
-    box-shadow:0 12px 34px rgba(0,0,0,.42);
-    min-width:252px;
-  }
-  .mb-panel.on{ display:block; animation:panelIn 260ms cubic-bezier(.22,.61,.36,1); }
-  @keyframes panelIn{ from{opacity:0;transform:translateY(8px);} to{opacity:1;transform:none;} }
-  .mb-row{ display:flex; align-items:center; gap:10px; margin:8px 0; }
-  .mb-row label{ flex:0 0 76px; color:#c3cee6; }
-  .mb-row input[type=range]{ width:138px; accent-color:#5f9dff; }
-  .mb-row .mb-btn{ padding:6px 12px; }
-  .mb-val{ color:#9fb4d8; font-variant-numeric:tabular-nums; }
-  .mb-hint{ color:#8fa2c2; font-size:12px; margin-top:8px; line-height:1.45; }
-  .mb-select{
-    background:rgba(160,190,255,.09); color:#eaf1ff; font:inherit;
-    border:1px solid rgba(180,205,255,.18); border-radius:9px; padding:6px 8px;
-  }
-  .mb-select option{ background:#0a1120; color:#eaf1ff; }
-
-  @media (max-width: 560px){
-    .mb-ui{ left:14px; flex-direction:column-reverse; align-items:flex-end; gap:8px; }
-    .mb-panel{ min-width:0; max-width:min(320px, calc(100vw - 28px)); }
-    .mb-row input[type=range]{ width:auto; flex:1 1 90px; }
+    .nav-links a,
+    .nav-links a::after{ transition:none; }
   }
 </style>
 </head>
 <body>
-
-<!-- Background canvas -->
-<div id="mandelbrot-bg" aria-hidden="true"><canvas id="mb-canvas"></canvas></div>
-
-<!-- Vignette / legibility scrim -->
-<div class="scrim" aria-hidden="true"></div>
-
-<!-- Overlay -->
-<div class="hero-overlay">
-  <div class="hero-box">
-    <img class="hero-logo" decoding="async"
-         src="https://sasch.odoo.com/web/image/website/1/logo/sasch.ca?unique=83efd14"
-         alt="sASCH logo" onerror="this.style.display='none'">
-    <div class="hero-line l2">Technology Solutions</div>
-    <div class="hero-line l3">Automation</div>
-    <div class="hero-line l4">Innovative Projects</div>
+  <div id="mandelbrot-bg" aria-hidden="true">
+    <canvas id="mb-canvas"></canvas>
   </div>
-</div>
+  <div class="scrim" aria-hidden="true"></div>
 
-<!-- ============================================================
-     Mandelbrot renderer
-     ============================================================ -->
-<script>
-(function () {
-  'use strict';
-
-  var SETTINGS = {
-    DPR_CAP:        1.5,      // never render above 1.5x device pixels
-    MAX_PIXELS:     2.4e6,    // hard ceiling so 4K screens stay at 60fps
-    FPS_CAP:        60,
-
-    START_SCALE:    3.2,      // world units across the short axis at t=0
-    END_SCALE:      1.2e-4,   // as deep as 32-bit floats stay crisp (see note)
-    DIVE_SECONDS:   52,
-    FADE_SECONDS:   2.4,      // cross-fade at each end of a dive
-
-    ITER_MIN:       90,
-    ITER_MAX:       640,
-    ITER_MAX_EXPERT:1000,
-
-    PALETTE_DRIFT:  0.0055,   // palette cycles per second — very slow
-    ROT_A: 0.42, ROT_WA: 0.019,   // gentle, never-resetting rotation sway
-    ROT_B: 0.21, ROT_WB: 0.0073
-  };
-
-  // Quality ladder. The renderer walks up and down this by itself,
-  // so the animation stays smooth on a phone and sharp on a desktop.
-  var QUALITY = [
-    { res: 0.55, aa: 1 },
-    { res: 0.75, aa: 1 },
-    { res: 1.00, aa: 1 },
-    { res: 1.00, aa: 2 }
-  ];
-
-  var canvas = document.getElementById('mb-canvas');
-  var reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-  var coarse = window.matchMedia('(pointer: coarse)').matches;
-
-  var gl = null;
-  try {
-    gl = canvas.getContext('webgl', { antialias:false, alpha:false, depth:false,
-                                      stencil:false, preserveDrawingBuffer:false,
-                                      powerPreference:'default' })
-      || canvas.getContext('experimental-webgl');
-  } catch (e) { gl = null; }
-
-  // No WebGL: the CSS gradient behind the canvas is the background. Done.
-  if (!gl) return;
-
-  /* ---------------- Shaders ---------------- */
-
-  var VERT = [
-    'attribute vec2 a_pos;',
-    'void main(){ gl_Position = vec4(a_pos, 0.0, 1.0); }'
-  ].join('\n');
-
-  function fragSource(aa){ return [
-    'precision highp float;',
-    '#define AA ' + aa,
-    '',
-    'uniform vec2  u_res;',
-    'uniform vec2  u_center;',
-    'uniform float u_scale;',
-    'uniform float u_rot;',
-    'uniform float u_iter;',
-    'uniform float u_time;',
-    'uniform float u_fade;',
-    '',
-    'const float ESCAPE = 1024.0;',
-    'const vec3  INK    = vec3(0.014, 0.019, 0.034);',
-    '',
-    '// Periodic ramp through a fixed cool gradient: ink -> indigo -> steel',
-    '// -> pale ice. One scalar drives all three channels, so the colour can',
-    '// never wander warm, and being periodic it does not depend on the',
-    '// iteration cap - the picture cannot shift hue as the dive deepens.',
-    'vec3 palette(float t){',
-    '  float s = 0.5 - 0.5 * cos(6.28318530718 * t);',
-    '  s = pow(s, 1.55);                 // bias dark: bright bands stay narrow',
-    '  vec3 c0 = vec3(0.022, 0.034, 0.066);',
-    '  vec3 c1 = vec3(0.075, 0.130, 0.250);',
-    '  vec3 c2 = vec3(0.190, 0.320, 0.500);',
-    '  vec3 c3 = vec3(0.375, 0.520, 0.670);',
-    '  vec3 col = mix(c0, c1, smoothstep(0.00, 0.38, s));',
-    '  col = mix(col, c2, smoothstep(0.38, 0.76, s));',
-    '  col = mix(col, c3, smoothstep(0.76, 1.00, s));',
-    '  return col;',
-    '}',
-    '',
-    'float hash21(vec2 p){',
-    '  p = fract(p * vec2(123.34, 456.21));',
-    '  p += dot(p, p + 45.32);',
-    '  return fract(p.x * p.y);',
-    '}',
-    '',
-    'vec3 shade(vec2 c, float pixelWorld){',
-    '  vec2  z    = vec2(0.0);',
-    '  vec2  dz   = vec2(0.0);   // dz/dc, for the distance estimate',
-    '  float m2   = 0.0;',
-    '  float it   = 0.0;',
-    '  float trap = 1e10;        // orbit trap, shades the interior',
-    '  bool  escaped = false;',
-    '',
-    '  for (int i = 0; i < 1200; i++){',
-    '    if (it >= u_iter) break;',
-    '    dz = 2.0 * vec2(z.x*dz.x - z.y*dz.y, z.x*dz.y + z.y*dz.x) + vec2(1.0, 0.0);',
-    '    z  = vec2(z.x*z.x - z.y*z.y, 2.0*z.x*z.y) + c;',
-    '    m2 = dot(z, z);',
-    '    trap = min(trap, m2);',
-    '    it += 1.0;',
-    '    if (m2 > ESCAPE){ escaped = true; break; }',
-    '  }',
-    '',
-    '  if (!escaped){',
-    '    // Inside the set: a soft graded body instead of a flat black hole.',
-    '    float g = 1.0 - clamp(sqrt(trap) * 1.35, 0.0, 1.0);',
-    '    return mix(INK, vec3(0.055, 0.075, 0.120), pow(g, 1.7));',
-    '  }',
-    '',
-    '  // Continuous (fractional) escape count — no visible iteration steps.',
-    '  float mu = it - log2(log2(m2)) + 4.0;',
-    '  float t  = 0.145 * sqrt(max(mu, 0.0)) + u_time * ' + SETTINGS.PALETTE_DRIFT.toFixed(5) + ';',
-    '  vec3  col = palette(t);',
-    '',
-    '  // Distance estimate: how far this pixel is from the set boundary.',
-    '  float dzl = max(length(dz), 1e-12);',
-    '  float de  = sqrt(m2) * 0.5 * log(m2) / dzl;',
-    '  float dpx = de / max(pixelWorld, 1e-20);   // distance in pixels',
-    '',
-    '  // Anti-alias the silhouette, then add a cool halo just outside it.',
-    '  col = mix(INK * 1.25, col, smoothstep(0.0, 1.2, dpx));',
-    '  col += vec3(0.085, 0.135, 0.225) * exp(-dpx / 9.0) * 0.55;',
-    '  return col;',
-    '}',
-    '',
-    'void main(){',
-    '  float cs = cos(u_rot), sn = sin(u_rot);',
-    '  mat2  R  = mat2(cs, -sn, sn, cs);',
-    '  float pixelWorld = u_scale / u_res.y;',
-    '',
-    '  vec3 acc = vec3(0.0);',
-    '  for (int m = 0; m < AA; m++){',
-    '    for (int n = 0; n < AA; n++){',
-    '      vec2 off  = (vec2(float(m), float(n)) + 0.5) / float(AA) - 0.5;',
-    '      vec2 p    = (gl_FragCoord.xy + off - 0.5 * u_res) / u_res.y;',
-    '      acc += shade(u_center + R * p * u_scale, pixelWorld);',
-    '    }',
-    '  }',
-    '  vec3 col = acc / float(AA * AA);',
-    '',
-    '  col = mix(INK, col, u_fade);',
-    '  // Ordered-ish dither: kills 8-bit banding in the large smooth areas.',
-    '  col += (hash21(gl_FragCoord.xy) - 0.5) * (1.0 / 255.0);',
-    '  gl_FragColor = vec4(col, 1.0);',
-    '}'
-  ].join('\n'); }
-
-  /* ---------------- GL resources ---------------- */
-
-  var UNIFORMS = ['u_res','u_center','u_scale','u_rot','u_iter','u_time','u_fade'];
-  var programs = {};
-  var quad = null;
-  var glReady = false;
-
-  function compile(type, src){
-    var s = gl.createShader(type);
-    gl.shaderSource(s, src);
-    gl.compileShader(s);
-    if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)){
-      var log = gl.getShaderInfoLog(s);
-      gl.deleteShader(s);
-      throw new Error(log);
-    }
-    return s;
-  }
-
-  function buildProgram(aa){
-    var vs = compile(gl.VERTEX_SHADER, VERT);
-    var fs = compile(gl.FRAGMENT_SHADER, fragSource(aa));
-    var prog = gl.createProgram();
-    gl.attachShader(prog, vs); gl.attachShader(prog, fs);
-    gl.linkProgram(prog);
-    gl.deleteShader(vs); gl.deleteShader(fs);
-    if (!gl.getProgramParameter(prog, gl.LINK_STATUS)){
-      var log = gl.getProgramInfoLog(prog);
-      gl.deleteProgram(prog);
-      throw new Error(log);
-    }
-    var entry = { prog: prog, loc: {} };
-    for (var i = 0; i < UNIFORMS.length; i++){
-      entry.loc[UNIFORMS[i]] = gl.getUniformLocation(prog, UNIFORMS[i]);
-    }
-    entry.aPos = gl.getAttribLocation(prog, 'a_pos');
-    return entry;
-  }
-
-  function getProgram(aa){
-    if (!programs[aa]) programs[aa] = buildProgram(aa);
-    return programs[aa];
-  }
-
-  function setupResources(){
-    programs = {};
-    quad = gl.createBuffer();
-    gl.bindBuffer(gl.ARRAY_BUFFER, quad);
-    gl.bufferData(gl.ARRAY_BUFFER,
-      new Float32Array([-1,-1, 1,-1, -1,1,  1,-1, 1,1, -1,1]), gl.STATIC_DRAW);
-    gl.clearColor(0.014, 0.019, 0.034, 1.0);
-    getProgram(1);            // fail fast if the driver rejects the shader
-    glReady = true;
-  }
-
-  try { setupResources(); }
-  catch (err){ if (window.console) console.warn('Mandelbrot shader unavailable:', err); return; }
-
-  /* ---------------- Sizing + adaptive quality ---------------- */
-
-  var tier = coarse ? 1 : 2;
-  var maxTier = coarse ? 2 : 3;      // no supersampling on touch devices
-  var vw = 0, vh = 0;
-
-  function resize(){
-    var cssW = canvas.clientWidth  || window.innerWidth;
-    var cssH = canvas.clientHeight || window.innerHeight;
-    var dpr  = Math.min(window.devicePixelRatio || 1, SETTINGS.DPR_CAP) * QUALITY[tier].res;
-    var w = Math.max(2, Math.round(cssW * dpr));
-    var h = Math.max(2, Math.round(cssH * dpr));
-    var px = w * h;
-    if (px > SETTINGS.MAX_PIXELS){
-      var k = Math.sqrt(SETTINGS.MAX_PIXELS / px);
-      w = Math.max(2, Math.round(w * k));
-      h = Math.max(2, Math.round(h * k));
-    }
-    if (canvas.width !== w || canvas.height !== h){
-      canvas.width = w; canvas.height = h;
-      gl.viewport(0, 0, w, h);
-    }
-    vw = w; vh = h;
-  }
-
-  if (window.ResizeObserver) new ResizeObserver(resize).observe(canvas);
-  else window.addEventListener('resize', resize);
-  resize();
-
-  var frameMs = 16.7, qSamples = 0, qCooldown = 0;
-  function updateQuality(dtMs){
-    frameMs += (Math.min(dtMs, 100) - frameMs) * 0.06;   // smoothed frame time
-    qSamples++; qCooldown += dtMs;
-    if (qSamples < 60 || qCooldown < 2500) return;
-    if (frameMs > 26 && tier > 0){ tier--; qSamples = 0; qCooldown = 0; resize(); }
-    else if (frameMs < 11.5 && tier < maxTier){ tier++; qSamples = 0; qCooldown = 0; resize(); }
-  }
-
-  /* ---------------- Precision guard ----------------
-     A GPU float holds ~7 significant digits. Once one screen pixel is
-     narrower than the gap between two representable numbers near the
-     dive centre, neighbouring pixels collapse onto the same value and
-     the image goes blocky. This computes that floor so every dive stops
-     while it is still crisp, instead of ending in mush.               */
-  function precisionFloor(center){
-    var mag = Math.max(Math.abs(center[0]), Math.abs(center[1]), 0.5);
-    var eps = Math.pow(2, Math.floor(Math.log2(mag)) - 23);  // float32 step near mag
-    return eps * Math.max(vh, 2);                            // one pixel's worth
-  }
-
-  /* ---------------- Dive targets ----------------
-     Kept to |coordinate| < 1 where possible: numbers below 1.0 carry
-     more float precision, which buys a deeper crisp zoom.             */
-  var spots = [
-    { name:'Seahorse Valley',  c:[-0.743643887037151,  0.131825904205330] },
-    { name:'Elephant Valley',  c:[-0.745290000000000,  0.112720000000000] },
-    { name:'Spiral Seahorses', c:[-0.775683770000000,  0.136467370000000] },
-    { name:'Triple Spiral',    c:[-0.088000000000000,  0.654000000000000] },
-    { name:'Cauliflower',      c:[ 0.001643721971153, -0.822467633298876] },
-    { name:'Valley of Birds',  c:[-1.250660000000000,  0.020120000000000] },
-    { name:'Main Bulb Edge',   c:[-0.101096363845620,  0.956286510809140] }
-  ];
-
-  var lastSpot = -1;
-  function pickNewCenter(){
-    var i = lastSpot;
-    if (spots.length > 1){ while (i === lastSpot) i = Math.floor(Math.random() * spots.length); }
-    else i = 0;
-    lastSpot = i;
-    return spots[i].c.slice();
-  }
-
-  /* ---------------- Animation state ---------------- */
-
-  function clamp(v, a, b){ return v < a ? a : (v > b ? b : v); }
-  function smoothstep(a, b, x){ var t = clamp((x - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); }
-
-  var clock = 0;                 // advances only while visible — no jumps on tab return
-  var diveStart = 0;
-  var center = pickNewCenter();
-  var currentScale = SETTINGS.START_SCALE;
-  var endScale = SETTINGS.END_SCALE;
-
-  var expertMode = false;
-  var speedMult = 1.0;
-  var manualScale = SETTINGS.START_SCALE;
-  var manualCenter = center.slice();
-  var rotOverride = null;
-  var firstFrame = true;
-
-  function diveEndScale(){
-    return Math.max(SETTINGS.END_SCALE, precisionFloor(center) * 1.6);
-  }
-  endScale = diveEndScale();
-
-  function rotationAt(t){
-    return SETTINGS.ROT_A * Math.sin(t * SETTINGS.ROT_WA)
-         + SETTINGS.ROT_B * Math.sin(t * SETTINGS.ROT_WB + 1.7);
-  }
-
-  // The rotation actually on screen right now — pan/zoom must undo it so
-  // the point under the cursor is the point that moves.
-  function effectiveRot(){
-    return (expertMode && rotOverride !== null) ? rotOverride : rotationAt(clock);
-  }
-
-  function drawFrame(dt){
-    resize();
-    clock += dt;
-
-    var scale, fade, rot;
-
-    if (expertMode){
-      var floorScale = precisionFloor(manualCenter) * 0.55;
-      manualScale = clamp(manualScale * Math.exp(-0.22 * speedMult * dt), floorScale, 6.0);
-      center = manualCenter;
-      scale = manualScale;
-      fade = 1.0;
-      rot = effectiveRot();
-    } else {
-      var t = clock - diveStart;
-      var u = clamp(t / SETTINGS.DIVE_SECONDS, 0, 1);
-      var eased = u * u * (3 - 2 * u);                    // ease in AND out
-      scale = SETTINGS.START_SCALE * Math.pow(endScale / SETTINGS.START_SCALE, eased);
-      fade = Math.min(
-        smoothstep(0, SETTINGS.FADE_SECONDS, t),
-        smoothstep(0, SETTINGS.FADE_SECONDS, SETTINGS.DIVE_SECONDS - t)
-      );
-      rot = rotationAt(clock);
-    }
-
-    currentScale = scale;
-
-    var iterCap = expertMode ? SETTINGS.ITER_MAX_EXPERT : SETTINGS.ITER_MAX;
-    var iters = clamp(
-      SETTINGS.ITER_MIN + 32 * Math.log2(Math.max(1, SETTINGS.START_SCALE / scale)),
-      SETTINGS.ITER_MIN, iterCap);
-
-    var P = getProgram(QUALITY[tier].aa);
-    gl.useProgram(P.prog);
-    gl.bindBuffer(gl.ARRAY_BUFFER, quad);
-    gl.enableVertexAttribArray(P.aPos);
-    gl.vertexAttribPointer(P.aPos, 2, gl.FLOAT, false, 0, 0);
-
-    gl.uniform2f(P.loc.u_res, vw, vh);
-    gl.uniform2f(P.loc.u_center, center[0], center[1]);
-    gl.uniform1f(P.loc.u_scale, scale);
-    gl.uniform1f(P.loc.u_rot, rot);
-    gl.uniform1f(P.loc.u_iter, iters);
-    gl.uniform1f(P.loc.u_time, clock);
-    gl.uniform1f(P.loc.u_fade, fade);
-    gl.drawArrays(gl.TRIANGLES, 0, 6);
-
-    if (firstFrame){ firstFrame = false; canvas.classList.add('ready'); }
-
-    // Swap targets while the screen is fully faded out — the cut is invisible.
-    if (!expertMode && (clock - diveStart) >= SETTINGS.DIVE_SECONDS){
-      center = pickNewCenter();
-      endScale = diveEndScale();
-      diveStart = clock;
-    }
-  }
-
-  /* ---------------- Reduced motion: one still frame ---------------- */
-
-  if (reduceMotion){
-    center = spots[0].c.slice();
-    manualCenter = center.slice();
-    resize();
-    // A single, calm, fully faded-in frame. No animation loop at all.
-    var still = { scale: 0.0075 };
-    (function drawStill(){
-      var P = getProgram(1);
-      gl.useProgram(P.prog);
-      gl.bindBuffer(gl.ARRAY_BUFFER, quad);
-      gl.enableVertexAttribArray(P.aPos);
-      gl.vertexAttribPointer(P.aPos, 2, gl.FLOAT, false, 0, 0);
-      gl.uniform2f(P.loc.u_res, vw, vh);
-      gl.uniform2f(P.loc.u_center, center[0], center[1]);
-      gl.uniform1f(P.loc.u_scale, still.scale);
-      gl.uniform1f(P.loc.u_rot, 0.35);
-      gl.uniform1f(P.loc.u_iter, 420);
-      gl.uniform1f(P.loc.u_time, 0);
-      gl.uniform1f(P.loc.u_fade, 1);
-      gl.drawArrays(gl.TRIANGLES, 0, 6);
-      canvas.classList.add('ready');
-    })();
-    window.addEventListener('resize', function(){ resize(); drawStill(); });
-    return;
-  }
-
-  /* ---------------- Frame loop ---------------- */
-
-  var MIN_FRAME = 1 / (SETTINGS.FPS_CAP + 1);
-  var rafId = 0, lastDraw = performance.now() / 1000, running = false;
-
-  function loop(){
-    rafId = requestAnimationFrame(loop);
-    var now = performance.now() / 1000;
-    var gap = now - lastDraw;
-    if (gap < MIN_FRAME - 0.0005) return;      // hold at the fps cap
-    lastDraw = now;
-    updateQuality(gap * 1000);
-    drawFrame(Math.min(gap, 0.1));             // clamp: never leap after a stall
-  }
-
-  function start(){
-    if (running || !glReady) return;
-    running = true;
-    lastDraw = performance.now() / 1000;
-    frameMs = 16.7; qSamples = 0; qCooldown = 0;
-    rafId = requestAnimationFrame(loop);
-  }
-  function stop(){
-    if (!running) return;
-    running = false;
-    cancelAnimationFrame(rafId);
-  }
-
-  start();
-
-  // Pausing keeps `clock` frozen, so returning to the tab resumes the
-  // dive exactly where it left off rather than snapping forward.
-  document.addEventListener('visibilitychange', function(){
-    if (document.hidden) stop(); else start();
-  });
-
-  canvas.addEventListener('webglcontextlost', function(e){
-    e.preventDefault(); stop(); glReady = false;
-  }, false);
-
-  canvas.addEventListener('webglcontextrestored', function(){
-    try { setupResources(); resize(); start(); }
-    catch (err){ if (window.console) console.warn('Context restore failed:', err); }
-  }, false);
-
-  /* ---------------- Public API for the Expert UI ---------------- */
-
-  window.MB = {
-    enableExpert: function(flag){
-      expertMode = !!flag;
-      if (expertMode){
-        manualScale = currentScale;
-        manualCenter = center.slice();
-      } else {
-        // Rejoin the automatic dive from the current depth, smoothly.
-        center = pickNewCenter();
-        endScale = diveEndScale();
-        rotOverride = null;
-        diveStart = clock;
-      }
-    },
-    setSpeedMult: function(m){ speedMult = Math.max(0, m); },
-    getState: function(){
-      return {
-        expertMode: expertMode,
-        center: center.slice(),
-        scale: currentScale,
-        zoom: SETTINGS.START_SCALE / currentScale,
-        atDepthLimit: expertMode &&
-          currentScale <= precisionFloor(manualCenter) * 0.56,
-        canvas: canvas,
-        spots: spots
-      };
-    },
-    pan: function(dx, dy){
-      var perPixel = currentScale / Math.max(canvas.clientHeight, 1);
-      var rot = effectiveRot();
-      var cs = Math.cos(rot), sn = Math.sin(rot);
-      var sx = dx * perPixel, sy = -dy * perPixel;
-      manualCenter[0] -= ( cs * sx + sn * sy);
-      manualCenter[1] -= (-sn * sx + cs * sy);
-    },
-    zoomAt: function(clientX, clientY, factor){
-      var rect = canvas.getBoundingClientRect();
-      if (!rect.width || !rect.height) return;
-      var x = (clientX - rect.left) * (vw / rect.width);
-      var y = (clientY - rect.top)  * (vh / rect.height);
-      var perPixel = manualScale / Math.max(vh, 1);
-      var rot = effectiveRot();
-      var cs = Math.cos(rot), sn = Math.sin(rot);
-      var px = (x - vw * 0.5) * perPixel;
-      var py = (vh * 0.5 - y) * perPixel;
-      // Undo the view rotation so the point under the cursor stays put.
-      var wx =  cs * px + sn * py;
-      var wy = -sn * px + cs * py;
-      var k = 1.0 - 1.0 / factor;
-      manualCenter[0] += wx * k;
-      manualCenter[1] += wy * k;
-      manualScale = clamp(manualScale / factor,
-                          precisionFloor(manualCenter) * 0.55, 6.0);
-    },
-    setRotation: function(r){ rotOverride = r; },
-    resetRotation: function(){ rotOverride = null; },
-    jumpToSpot: function(idx){
-      var s = spots[idx | 0];
-      if (!s) return;
-      manualCenter = s.c.slice();
-      manualScale = SETTINGS.START_SCALE;
-      center = manualCenter.slice();
-      endScale = diveEndScale();
-      diveStart = clock;
-    }
-  };
-})();
-</script>
-
-<!-- ============================================================
-     Expert Mode UI
-     ============================================================ -->
-<div class="mb-ui">
-  <button id="mb-toggle" class="mb-btn" aria-pressed="false">Expert Mode</button>
-  <div id="mb-panel" class="mb-panel" role="group" aria-label="Fractal controls">
-    <div class="mb-row">
-      <label for="mb-speed">Speed</label>
-      <input id="mb-speed" type="range" min="0" max="4" value="1" step="0.05">
-      <span id="mb-speed-val" class="mb-val">1.0x</span>
+  <nav class="site-nav" aria-label="Primary navigation">
+    <a class="brand" href="#">sASCH</a>
+    <div class="nav-links">
+      <a href="#">Home</a>
+      <a href="#">Work</a>
+      <a href="#">About</a>
+      <a href="#">Contact</a>
     </div>
-    <div class="mb-row">
-      <label for="mb-spot">Waypoint</label>
-      <select id="mb-spot" class="mb-select"></select>
-    </div>
-    <div class="mb-row">
-      <label>Zoom</label>
-      <span id="mb-zoom-val" class="mb-val">1x</span>
-    </div>
-    <div class="mb-row">
-      <button id="mb-zoom-in" class="mb-btn" title="Zoom in" aria-label="Zoom in">+</button>
-      <button id="mb-zoom-out" class="mb-btn" title="Zoom out" aria-label="Zoom out">−</button>
-      <button id="mb-reset-rot" class="mb-btn" title="Reset rotation" aria-label="Reset rotation">⟳</button>
-    </div>
-    <div class="mb-hint">Scroll or pinch to zoom. Drag to pan. Arrow keys pan, Shift for faster.</div>
-  </div>
-</div>
+  </nav>
 
 <script>
 (function(){
   'use strict';
-  if (!window.MB) {
-    var ui = document.querySelector('.mb-ui');
-    if (ui) ui.style.display = 'none';
+
+  var canvas = document.getElementById('mb-canvas');
+  var nav = document.querySelector('.site-nav');
+  var reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  var coarse = window.matchMedia('(pointer: coarse)').matches;
+
+  var SETTINGS = {
+    DPR_CAP: coarse ? 1.2 : 1.5,
+    MAX_PIXELS: coarse ? 1500000 : 2400000,
+    START_SCALE: 3.15,
+    END_SCALE: 0.00018,
+    ZOOM_RATE: 0.155,
+    STEER_RATE: 0.29,
+    STEER_SMOOTH: 5.5,
+    ITER_MIN: 90,
+    ITER_MAX: coarse ? 420 : 680
+  };
+
+  var gl = null;
+  try{
+    gl = canvas.getContext('webgl', {
+      antialias:false,
+      alpha:false,
+      depth:false,
+      stencil:false,
+      preserveDrawingBuffer:false,
+      powerPreference:'high-performance'
+    }) || canvas.getContext('experimental-webgl');
+  }catch(e){ gl = null; }
+
+  if(!gl) return;
+
+  var VERT = [
+    'attribute vec2 a_pos;',
+    'void main(){ gl_Position = vec4(a_pos,0.0,1.0); }'
+  ].join('\n');
+
+  var FRAG = [
+    'precision highp float;',
+    'uniform vec2 u_res;',
+    'uniform vec2 u_center;',
+    'uniform float u_scale;',
+    'uniform float u_iter;',
+    'uniform float u_time;',
+    '',
+    'const vec3 INK = vec3(0.014,0.019,0.034);',
+    '',
+    'vec3 palette(float t){',
+    '  float s = 0.5 - 0.5*cos(6.2831853*t);',
+    '  s = pow(s,1.55);',
+    '  vec3 c0 = vec3(0.020,0.032,0.062);',
+    '  vec3 c1 = vec3(0.070,0.125,0.245);',
+    '  vec3 c2 = vec3(0.185,0.320,0.505);',
+    '  vec3 c3 = vec3(0.420,0.570,0.720);',
+    '  vec3 col = mix(c0,c1,smoothstep(0.0,0.38,s));',
+    '  col = mix(col,c2,smoothstep(0.38,0.76,s));',
+    '  col = mix(col,c3,smoothstep(0.76,1.0,s));',
+    '  return col;',
+    '}',
+    '',
+    'float hash21(vec2 p){',
+    '  p = fract(p*vec2(123.34,456.21));',
+    '  p += dot(p,p+45.32);',
+    '  return fract(p.x*p.y);',
+    '}',
+    '',
+    'vec3 mandelbrot(vec2 c){',
+    '  vec2 z = vec2(0.0);',
+    '  vec2 dz = vec2(0.0);',
+    '  float m2 = 0.0;',
+    '  float it = 0.0;',
+    '  float trap = 1e10;',
+    '  bool escaped = false;',
+    '  for(int i=0;i<900;i++){',
+    '    if(it >= u_iter) break;',
+    '    dz = 2.0*vec2(z.x*dz.x-z.y*dz.y,z.x*dz.y+z.y*dz.x)+vec2(1.0,0.0);',
+    '    z = vec2(z.x*z.x-z.y*z.y,2.0*z.x*z.y)+c;',
+    '    m2 = dot(z,z);',
+    '    trap = min(trap,m2);',
+    '    it += 1.0;',
+    '    if(m2 > 1024.0){ escaped = true; break; }',
+    '  }',
+    '  if(!escaped){',
+    '    float g = 1.0-clamp(sqrt(trap)*1.35,0.0,1.0);',
+    '    return mix(INK,vec3(0.052,0.074,0.120),pow(g,1.7));',
+    '  }',
+    '  float mu = it-log2(log2(m2))+4.0;',
+    '  float t = 0.145*sqrt(max(mu,0.0))+u_time*0.0045;',
+    '  vec3 col = palette(t);',
+    '  float dzl = max(length(dz),1e-12);',
+    '  float de = sqrt(m2)*0.5*log(m2)/dzl;',
+    '  float pixelWorld = u_scale/u_res.y;',
+    '  float dpx = de/max(pixelWorld,1e-20);',
+    '  col = mix(INK*1.25,col,smoothstep(0.0,1.15,dpx));',
+    '  col += vec3(0.07,0.12,0.21)*exp(-dpx/8.0)*0.55;',
+    '  return col;',
+    '}',
+    '',
+    'void main(){',
+    '  vec2 p = (gl_FragCoord.xy-0.5*u_res)/u_res.y;',
+    '  vec3 col = mandelbrot(u_center+p*u_scale);',
+    '  col += (hash21(gl_FragCoord.xy)-0.5)/255.0;',
+    '  gl_FragColor = vec4(col,1.0);',
+    '}'
+  ].join('\n');
+
+  function compile(type,source){
+    var shader = gl.createShader(type);
+    gl.shaderSource(shader,source);
+    gl.compileShader(shader);
+    if(!gl.getShaderParameter(shader,gl.COMPILE_STATUS)){
+      throw new Error(gl.getShaderInfoLog(shader));
+    }
+    return shader;
+  }
+
+  var program;
+  try{
+    var vs = compile(gl.VERTEX_SHADER,VERT);
+    var fs = compile(gl.FRAGMENT_SHADER,FRAG);
+    program = gl.createProgram();
+    gl.attachShader(program,vs);
+    gl.attachShader(program,fs);
+    gl.linkProgram(program);
+    gl.deleteShader(vs);
+    gl.deleteShader(fs);
+    if(!gl.getProgramParameter(program,gl.LINK_STATUS)){
+      throw new Error(gl.getProgramInfoLog(program));
+    }
+  }catch(err){
+    if(window.console) console.warn('Mandelbrot unavailable:',err);
     return;
   }
 
-  var toggle   = document.getElementById('mb-toggle');
-  var panel    = document.getElementById('mb-panel');
-  var speed    = document.getElementById('mb-speed');
-  var speedVal = document.getElementById('mb-speed-val');
-  var zoomVal  = document.getElementById('mb-zoom-val');
-  var zoomIn   = document.getElementById('mb-zoom-in');
-  var zoomOut  = document.getElementById('mb-zoom-out');
-  var resetRot = document.getElementById('mb-reset-rot');
-  var spotSel  = document.getElementById('mb-spot');
-  var hint     = document.querySelector('.mb-hint');
-  var hintText = hint ? hint.textContent : '';
+  var loc = {
+    pos:gl.getAttribLocation(program,'a_pos'),
+    res:gl.getUniformLocation(program,'u_res'),
+    center:gl.getUniformLocation(program,'u_center'),
+    scale:gl.getUniformLocation(program,'u_scale'),
+    iter:gl.getUniformLocation(program,'u_iter'),
+    time:gl.getUniformLocation(program,'u_time')
+  };
 
-  MB.getState().spots.forEach(function(s, i){
-    var opt = document.createElement('option');
-    opt.value = i; opt.textContent = s.name;
-    spotSel.appendChild(opt);
-  });
+  var quad = gl.createBuffer();
+  gl.bindBuffer(gl.ARRAY_BUFFER,quad);
+  gl.bufferData(gl.ARRAY_BUFFER,new Float32Array([
+    -1,-1, 1,-1, -1,1,
+     1,-1, 1, 1, -1,1
+  ]),gl.STATIC_DRAW);
 
-  var enabled = false;
+  gl.useProgram(program);
+  gl.enableVertexAttribArray(loc.pos);
+  gl.vertexAttribPointer(loc.pos,2,gl.FLOAT,false,0,0);
+  gl.clearColor(0.014,0.019,0.034,1);
 
-  function setEnabled(flag){
-    enabled = !!flag;
-    toggle.classList.toggle('active', enabled);
-    toggle.setAttribute('aria-pressed', enabled ? 'true' : 'false');
-    panel.classList.toggle('on', enabled);
-    document.body.classList.toggle('mb-expert', enabled);
-    MB.enableExpert(enabled);
-  }
-  toggle.addEventListener('click', function(){ setEnabled(!enabled); });
+  var vw = 1;
+  var vh = 1;
 
-  function applySpeed(){
-    var v = parseFloat(speed.value || '1');
-    MB.setSpeedMult(v);
-    speedVal.textContent = v.toFixed(1) + 'x';
-  }
-  speed.addEventListener('input', applySpeed);
-  applySpeed();
-
-  function formatZoom(z){
-    if (z >= 1e6) return '×' + (z / 1e6).toFixed(1) + 'M';
-    if (z >= 1e3) return '×' + (z / 1e3).toFixed(1) + 'k';
-    return '×' + Math.max(1, Math.round(z));
-  }
-
-  // Cheap readout: 5 updates a second, and only while the panel is open.
-  setInterval(function(){
-    if (!enabled) return;
-    var st = MB.getState();
-    zoomVal.textContent = formatZoom(st.zoom);
-    if (hint) {
-      hint.textContent = st.atDepthLimit
-        ? 'Maximum depth for this renderer — pick another waypoint to keep exploring.'
-        : hintText;
+  function resize(){
+    var cssW = Math.max(1,canvas.clientWidth || innerWidth);
+    var cssH = Math.max(1,canvas.clientHeight || innerHeight);
+    var dpr = Math.min(devicePixelRatio || 1,SETTINGS.DPR_CAP);
+    var w = Math.round(cssW*dpr);
+    var h = Math.round(cssH*dpr);
+    var pixels = w*h;
+    if(pixels > SETTINGS.MAX_PIXELS){
+      var k = Math.sqrt(SETTINGS.MAX_PIXELS/pixels);
+      w = Math.max(2,Math.round(w*k));
+      h = Math.max(2,Math.round(h*k));
     }
-  }, 200);
-
-  spotSel.addEventListener('change', function(e){
-    MB.jumpToSpot(parseInt(e.target.value, 10));
-  });
-
-  function zoomFromCentre(factor){
-    var st = MB.getState();
-    var rect = st.canvas.getBoundingClientRect();
-    MB.zoomAt(rect.left + rect.width / 2, rect.top + rect.height / 2, factor);
+    if(canvas.width !== w || canvas.height !== h){
+      canvas.width = w;
+      canvas.height = h;
+      gl.viewport(0,0,w,h);
+    }
+    vw = w;
+    vh = h;
   }
-  zoomIn.addEventListener('click',  function(){ zoomFromCentre(1.3); });
-  zoomOut.addEventListener('click', function(){ zoomFromCentre(1 / 1.3); });
-  resetRot.addEventListener('click', function(){ MB.resetRotation(); });
 
-  // --- Wheel ---
-  window.addEventListener('wheel', function(e){
-    if (!enabled || panel.contains(e.target)) return;
-    e.preventDefault();
-    var step = clampNum(e.deltaY, -120, 120) / 120;
-    MB.zoomAt(e.clientX, e.clientY, Math.exp(-step * 0.28));
-  }, { passive:false });
+  addEventListener('resize',resize,{passive:true});
+  resize();
 
-  function clampNum(v, a, b){ return v < a ? a : (v > b ? b : v); }
+  var spots = [
+    [-0.7436438870, 0.1318259042],
+    [-0.7756837700, 0.1364673700],
+    [-0.0880000000, 0.6540000000],
+    [ 0.0016437220,-0.8224676333],
+    [-1.2506600000, 0.0201200000]
+  ];
 
-  // --- Mouse drag ---
-  var dragging = false, lastX = 0, lastY = 0;
-  window.addEventListener('mousedown', function(e){
-    if (!enabled || panel.contains(e.target) || toggle.contains(e.target)) return;
-    dragging = true; lastX = e.clientX; lastY = e.clientY;
-    document.body.classList.add('mb-dragging');
+  var spotIndex = 0;
+  var center = spots[spotIndex].slice();
+  var scale = SETTINGS.START_SCALE;
+  var steerTarget = {x:0,y:0};
+  var steer = {x:0,y:0};
+  var clock = 0;
+  var last = performance.now()/1000;
+  var firstFrame = true;
+
+  function clamp(v,a,b){ return v<a?a:(v>b?b:v); }
+
+  function setSteerFromPoint(clientX,clientY,rect){
+    var x = ((clientX-rect.left)/Math.max(rect.width,1))*2-1;
+    var y = ((clientY-rect.top)/Math.max(rect.height,1))*2-1;
+    steerTarget.x = clamp(x,-1,1);
+    steerTarget.y = clamp(y,-1,1);
+  }
+
+  // Desktop: the top menu is the steering surface. The cursor position inside
+  // it becomes a continuous left/right/up/down navigation vector.
+  nav.addEventListener('pointermove',function(e){
+    if(e.pointerType === 'touch') return;
+    setSteerFromPoint(e.clientX,e.clientY,nav.getBoundingClientRect());
   });
-  window.addEventListener('mousemove', function(e){
-    if (!enabled || !dragging) return;
-    MB.pan(e.clientX - lastX, e.clientY - lastY);
-    lastX = e.clientX; lastY = e.clientY;
-  });
-  window.addEventListener('mouseup', function(){
-    dragging = false;
-    document.body.classList.remove('mb-dragging');
+
+  nav.addEventListener('pointerleave',function(){
+    if(coarse) return;
+    // Keep a little momentum, but ease toward neutral when the user leaves.
+    steerTarget.x *= 0.35;
+    steerTarget.y *= 0.35;
   });
 
-  // --- Touch: pan + pinch ---
-  var pinchBase = null, tx = 0, ty = 0;
-  window.addEventListener('touchstart', function(e){
-    if (!enabled || panel.contains(e.target)) return;
-    if (e.touches.length === 1){
-      tx = e.touches[0].clientX; ty = e.touches[0].clientY;
-    } else if (e.touches.length === 2){
-      pinchBase = Math.hypot(
-        e.touches[1].clientX - e.touches[0].clientX,
-        e.touches[1].clientY - e.touches[0].clientY);
+  // Mobile placeholder behavior: drag anywhere on the fractal to steer.
+  // Device orientation can replace this later without changing the renderer.
+  if(coarse){
+    canvas.addEventListener('pointermove',function(e){
+      if(e.pointerType !== 'touch') return;
+      setSteerFromPoint(e.clientX,e.clientY,canvas.getBoundingClientRect());
+    },{passive:true});
+    canvas.addEventListener('pointerup',function(){
+      steerTarget.x = 0;
+      steerTarget.y = 0;
+    },{passive:true});
+    canvas.addEventListener('pointercancel',function(){
+      steerTarget.x = 0;
+      steerTarget.y = 0;
+    },{passive:true});
+  }
+
+  document.querySelectorAll('.site-nav a').forEach(function(link){
+    link.addEventListener('click',function(e){ e.preventDefault(); });
+  });
+
+  function resetDive(){
+    spotIndex = (spotIndex+1)%spots.length;
+    center = spots[spotIndex].slice();
+    scale = SETTINGS.START_SCALE;
+  }
+
+  function draw(now){
+    var t = now/1000;
+    var dt = Math.min(0.05,Math.max(0,t-last));
+    last = t;
+    clock += dt;
+    resize();
+
+    if(!reduceMotion){
+      var smooth = 1-Math.exp(-SETTINGS.STEER_SMOOTH*dt);
+      steer.x += (steerTarget.x-steer.x)*smooth;
+      steer.y += (steerTarget.y-steer.y)*smooth;
+
+      // Steering velocity shrinks with scale, so mouse movement remains useful
+      // at both the full-set view and deep zoom levels.
+      var travel = scale*SETTINGS.STEER_RATE*dt;
+      center[0] += steer.x*travel;
+      center[1] -= steer.y*travel;
+
+      scale *= Math.exp(-SETTINGS.ZOOM_RATE*dt);
+      if(scale <= SETTINGS.END_SCALE) resetDive();
+    }else{
+      scale = 0.012;
     }
-  }, { passive:true });
 
-  window.addEventListener('touchmove', function(e){
-    if (!enabled || panel.contains(e.target)) return;
-    e.preventDefault();
-    if (e.touches.length === 1){
-      var x = e.touches[0].clientX, y = e.touches[0].clientY;
-      MB.pan(x - tx, y - ty);
-      tx = x; ty = y;
-    } else if (e.touches.length === 2 && pinchBase){
-      var dist = Math.hypot(
-        e.touches[1].clientX - e.touches[0].clientX,
-        e.touches[1].clientY - e.touches[0].clientY);
-      var factor = clampNum(dist / pinchBase, 1 / 1.5, 1.5);
-      MB.zoomAt((e.touches[0].clientX + e.touches[1].clientX) / 2,
-                (e.touches[0].clientY + e.touches[1].clientY) / 2, factor);
-      pinchBase = dist;
+    var zoom = SETTINGS.START_SCALE/scale;
+    var iters = clamp(SETTINGS.ITER_MIN + 30*Math.log2(Math.max(1,zoom)),SETTINGS.ITER_MIN,SETTINGS.ITER_MAX);
+
+    gl.useProgram(program);
+    gl.bindBuffer(gl.ARRAY_BUFFER,quad);
+    gl.vertexAttribPointer(loc.pos,2,gl.FLOAT,false,0,0);
+    gl.uniform2f(loc.res,vw,vh);
+    gl.uniform2f(loc.center,center[0],center[1]);
+    gl.uniform1f(loc.scale,scale);
+    gl.uniform1f(loc.iter,iters);
+    gl.uniform1f(loc.time,clock);
+    gl.drawArrays(gl.TRIANGLES,0,6);
+
+    if(firstFrame){
+      firstFrame = false;
+      canvas.classList.add('ready');
     }
-  }, { passive:false });
 
-  window.addEventListener('touchend', function(){ pinchBase = null; }, { passive:true });
+    if(!reduceMotion) requestAnimationFrame(draw);
+  }
 
-  // --- Keyboard ---
-  window.addEventListener('keydown', function(e){
-    if (e.key === 'Escape' && enabled){ setEnabled(false); return; }
-    if (!enabled) return;
-    var tag = (e.target && e.target.tagName) || '';
-    if (tag === 'INPUT' || tag === 'SELECT') return;
-    var step = e.shiftKey ? 40 : 15;
-    var keys = ['ArrowLeft','ArrowRight','ArrowUp','ArrowDown','+','-','=','_'];
-    if (keys.indexOf(e.key) !== -1) e.preventDefault();
-    if (e.key === 'ArrowLeft')  MB.pan(-step, 0);
-    if (e.key === 'ArrowRight') MB.pan(step, 0);
-    if (e.key === 'ArrowUp')    MB.pan(0, -step);
-    if (e.key === 'ArrowDown')  MB.pan(0, step);
-    if (e.key === '+' || e.key === '=') zoomFromCentre(1.15);
-    if (e.key === '-' || e.key === '_') zoomFromCentre(1 / 1.15);
-  });
+  requestAnimationFrame(draw);
 })();
 </script>
-
 </body>
 </html>
