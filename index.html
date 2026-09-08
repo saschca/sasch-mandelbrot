@@ -4,27 +4,26 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
 <meta name="theme-color" content="#050810" />
-<meta name="description" content="sASCH — Technology Solutions, Automation, Innovative Projects." />
+<meta name="description" content="An endless dive into the Mandelbrot set. Move the mouse, or tap, to steer." />
 <title>sASCH – Mandelbrot</title>
 <style>
   /* ============================================================
-     Palette + layout tokens
+     Tokens
      ============================================================ */
   :root{
     --ink:#050810;
-    --hero-top-desktop: 13vh;
-    --hero-top-mobile: 9vh;
-    --text-alpha: 0.80;
     --font: ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI",
             Inter, Roboto, Helvetica, Arial, sans-serif;
   }
 
+  *,*::before,*::after{ box-sizing:border-box; }
+
   html{ height:100%; }
   body{
-    height:100%; margin:0; color-scheme:dark;
+    height:100%; margin:0; color-scheme:dark; overflow:hidden;
     font-family: var(--font);
-    /* Painted behind the canvas: the page still looks intentional
-       if WebGL is unavailable or the canvas has not drawn yet. */
+    overscroll-behavior:none; touch-action:manipulation;
+    /* Behind the canvas: the page still reads as designed with no WebGL. */
     background:
       radial-gradient(125% 90% at 50% 0%, #101c38 0%, #070c18 46%, #04060d 100%);
   }
@@ -37,72 +36,34 @@
   }
   #mb-canvas.ready{ opacity:1; }
 
-  /* ---------- Scrim: vignette + top wash, keeps text legible ---------- */
+  /* ---------- Scrim: a soft vignette, nothing else on screen ---------- */
   .scrim{
     position:fixed; inset:0; z-index:2; pointer-events:none;
     background:
-      radial-gradient(125% 78% at 50% 44%,
-        rgba(4,6,13,0) 30%, rgba(4,6,13,.30) 72%, rgba(4,6,13,.66) 100%),
-      linear-gradient(to bottom,
-        rgba(4,6,13,.66) 0%, rgba(4,6,13,.30) 20%, rgba(4,6,13,0) 42%);
+      radial-gradient(125% 80% at 50% 50%,
+        rgba(4,6,13,0) 40%, rgba(4,6,13,.22) 78%, rgba(4,6,13,.55) 100%);
   }
 
-  /* ---------- Overlay (logo + 3 lines) ---------- */
-  .hero-overlay{
-    position:fixed; inset:0; z-index:5; pointer-events:none;
-    display:grid; place-items:start center; padding:0 4vw;
-    padding-top: env(safe-area-inset-top, 0px);
+  /* ---------- Tap ring: the only acknowledgement, and it has no words ---------- */
+  .tap-ring{
+    position:fixed; left:0; top:0; z-index:3; pointer-events:none;
+    width:44px; height:44px; margin:-22px 0 0 -22px; border-radius:50%;
+    border:1.5px solid rgba(190,215,255,.8); opacity:0; transform:scale(.4);
   }
-  .hero-box{
-    margin-top: var(--hero-top-desktop);
-    text-align:center; color:rgba(255,255,255,var(--text-alpha));
-    max-width:1100px; width:100%; line-height:1.5;
-  }
-  .hero-logo{
-    width:min(15vw,160px); height:auto; margin:0 auto 2.2vh auto; display:block; opacity:0;
-    animation:fadeUp 1100ms cubic-bezier(.22,.61,.36,1) 250ms forwards;
-    filter:drop-shadow(0 2px 14px rgba(0,0,0,.45));
-  }
-  .hero-line{
-    font-weight:300; font-size:clamp(14px,1.6vw,20px);
-    letter-spacing:.14em; text-transform:uppercase;
-    opacity:0; transform:translateY(8px);
-    text-shadow:0 1px 16px rgba(0,0,0,.55);
-    animation:fadeUp 900ms cubic-bezier(.22,.61,.36,1) forwards;
-  }
-  .l2{ animation-delay: 900ms; }
-  .l3{ animation-delay: 1600ms; }
-  .l4{ animation-delay: 2300ms; }
+  .tap-ring.ping{ animation:tapPing 650ms cubic-bezier(.2,.6,.3,1) forwards; }
+  @keyframes tapPing{ from{opacity:.85; transform:scale(.4);} to{opacity:0; transform:scale(1.4);} }
 
-  @media (max-width: 768px){
-    .hero-box{ margin-top: var(--hero-top-mobile); }
-    .hero-logo{ width:min(38vw,140px); }
-    .hero-line{ font-size:clamp(12px,3.6vw,17px); letter-spacing:.12em; }
-  }
-
-  @keyframes fadeUp{ from{opacity:0;transform:translateY(12px);} to{opacity:1;transform:translateY(0);} }
-  @media (prefers-reduced-motion: reduce){
-    .hero-logo,.hero-line{ animation:none; opacity:1; transform:none; }
-    #mb-canvas{ transition:none; }
-  }
-
-  /* ---------- Expert mode UX fixes ---------- */
-  .mb-expert{ overscroll-behavior:none; }
-  .mb-expert #mandelbrot-bg{ pointer-events:auto; }
-  .mb-expert #mb-canvas{ touch-action:none; cursor:grab; }
-  .mb-expert.mb-dragging #mb-canvas{ cursor:grabbing; }
-
-  /* ---------- Expert UI ---------- */
+  /* ============================================================
+     Expert UI
+     ============================================================ */
   .mb-ui{
     position:fixed; right:14px; bottom:14px; z-index:6;
     display:flex; gap:10px; align-items:flex-end;
-    font: 13px/1.25 var(--font);
-    color:#e8eefc; pointer-events:none;
+    font: 13px/1.25 var(--font); color:#e8eefc; pointer-events:none;
   }
   .mb-btn{
     pointer-events:auto; cursor:pointer; font:inherit; color:#eaf1ff;
-    background:rgba(160,190,255,.09);
-    border:1px solid rgba(180,205,255,.18);
+    background:rgba(160,190,255,.09); border:1px solid rgba(180,205,255,.18);
     padding:8px 12px; border-radius:11px;
     -webkit-backdrop-filter:blur(10px); backdrop-filter:blur(10px);
     transition:opacity .35s ease, background .25s ease, border-color .25s ease, transform .18s ease;
@@ -110,7 +71,6 @@
   .mb-btn:hover{ background:rgba(160,190,255,.16); border-color:rgba(180,205,255,.32); }
   .mb-btn:active{ transform:translateY(1px); }
   .mb-btn:focus-visible{ outline:2px solid rgba(120,170,255,.75); outline-offset:2px; }
-  /* Sits back quietly until you reach for it. */
   #mb-toggle{ opacity:.42; }
   #mb-toggle:hover, #mb-toggle:focus-visible, #mb-toggle.active{ opacity:1; }
   .mb-btn.active{ background:rgba(88,150,255,.24); border-color:rgba(120,175,255,.48); }
@@ -120,8 +80,7 @@
     background:rgba(6,10,20,.58); border:1px solid rgba(180,205,255,.14);
     padding:12px 14px; border-radius:14px;
     -webkit-backdrop-filter:blur(12px); backdrop-filter:blur(12px);
-    box-shadow:0 12px 34px rgba(0,0,0,.42);
-    min-width:252px;
+    box-shadow:0 12px 34px rgba(0,0,0,.42); min-width:252px;
   }
   .mb-panel.on{ display:block; animation:panelIn 260ms cubic-bezier(.22,.61,.36,1); }
   @keyframes panelIn{ from{opacity:0;transform:translateY(8px);} to{opacity:1;transform:none;} }
@@ -142,6 +101,18 @@
     .mb-panel{ min-width:0; max-width:min(320px, calc(100vw - 28px)); }
     .mb-row input[type=range]{ width:auto; flex:1 1 90px; }
   }
+
+  /* ---------- Expert mode UX fixes ---------- */
+  .mb-expert{ overscroll-behavior:none; }
+  .mb-expert #mandelbrot-bg{ pointer-events:auto; }
+  .mb-expert #mb-canvas{ touch-action:none; cursor:grab; }
+  .mb-expert.mb-dragging #mb-canvas{ cursor:grabbing; }
+
+  @media (prefers-reduced-motion: reduce){
+    #mb-canvas{ transition:none; }
+    .tap-ring{ display:none; }
+    .mb-panel.on{ animation:none; }
+  }
 </style>
 </head>
 <body>
@@ -149,20 +120,9 @@
 <!-- Background canvas -->
 <div id="mandelbrot-bg" aria-hidden="true"><canvas id="mb-canvas"></canvas></div>
 
-<!-- Vignette / legibility scrim -->
+<!-- Vignette -->
 <div class="scrim" aria-hidden="true"></div>
-
-<!-- Overlay -->
-<div class="hero-overlay">
-  <div class="hero-box">
-    <img class="hero-logo" decoding="async"
-         src="https://sasch.odoo.com/web/image/website/1/logo/sasch.ca?unique=83efd14"
-         alt="sASCH logo" onerror="this.style.display='none'">
-    <div class="hero-line l2">Technology Solutions</div>
-    <div class="hero-line l3">Automation</div>
-    <div class="hero-line l4">Innovative Projects</div>
-  </div>
-</div>
+<div class="tap-ring" id="tap-ring" aria-hidden="true"></div>
 
 <!-- ============================================================
      Mandelbrot renderer
@@ -172,26 +132,37 @@
   'use strict';
 
   var SETTINGS = {
-    DPR_CAP:        1.5,      // never render above 1.5x device pixels
-    MAX_PIXELS:     2.4e6,    // hard ceiling so 4K screens stay at 60fps
+    DPR_CAP:        1.5,
+    MAX_PIXELS:     2.4e6,
     FPS_CAP:        60,
 
-    START_SCALE:    3.2,      // world units across the short axis at t=0
-    END_SCALE:      1.2e-4,   // as deep as 32-bit floats stay crisp (see note)
-    DIVE_SECONDS:   52,
-    FADE_SECONDS:   2.4,      // cross-fade at each end of a dive
+    START_SCALE:    3.2,
+    END_SCALE:      1.2e-4,   // as deep as 32-bit floats stay crisp
+    DIVE_SECONDS:   64,
+    FADE_SECONDS:   2.4,
 
     ITER_MIN:       90,
     ITER_MAX:       640,
     ITER_MAX_EXPERT:1000,
 
-    PALETTE_DRIFT:  0.0055,   // palette cycles per second — very slow
-    ROT_A: 0.42, ROT_WA: 0.019,   // gentle, never-resetting rotation sway
-    ROT_B: 0.21, ROT_WB: 0.0073
+    PALETTE_DRIFT:  0.0055,
+    ROT_A: 0.42, ROT_WA: 0.019,
+    ROT_B: 0.21, ROT_WB: 0.0073,
+
+    /* --- Steering: the pointer aims the dive. On a mouse, where the
+       pointer rests relative to the centre of the screen is the direction.
+       On touch, the last tap is the direction, and it holds until the next
+       tap; a tap near the centre dives straight ahead. --- */
+    STEER_RATE:     0.18,     // view-heights per second at full deflection
+    STEER_DEADZONE: 0.10,     // pointer resting near centre dives straight
+    STEER_SMOOTH:   4.5,      // higher = snappier, lower = more gliding
+
+    /* --- Autopilot: keeps the view on the fractal boundary --- */
+    EDGE_TARGET:    0.14,     // boundary sits this many view-heights off centre
+    EDGE_RATE:      3.2,      // how briskly it corrects
+    PROBE_ITERS:    900
   };
 
-  // Quality ladder. The renderer walks up and down this by itself,
-  // so the animation stays smooth on a phone and sharp on a desktop.
   var QUALITY = [
     { res: 0.55, aa: 1 },
     { res: 0.75, aa: 1 },
@@ -206,13 +177,10 @@
   var gl = null;
   try {
     gl = canvas.getContext('webgl', { antialias:false, alpha:false, depth:false,
-                                      stencil:false, preserveDrawingBuffer:false,
-                                      powerPreference:'default' })
+                                      stencil:false, preserveDrawingBuffer:false })
       || canvas.getContext('experimental-webgl');
   } catch (e) { gl = null; }
-
-  // No WebGL: the CSS gradient behind the canvas is the background. Done.
-  if (!gl) return;
+  if (!gl) return;   // the CSS gradient behind the canvas is the background
 
   /* ---------------- Shaders ---------------- */
 
@@ -278,22 +246,18 @@
     '  }',
     '',
     '  if (!escaped){',
-    '    // Inside the set: a soft graded body instead of a flat black hole.',
     '    float g = 1.0 - clamp(sqrt(trap) * 1.35, 0.0, 1.0);',
     '    return mix(INK, vec3(0.055, 0.075, 0.120), pow(g, 1.7));',
     '  }',
     '',
-    '  // Continuous (fractional) escape count — no visible iteration steps.',
-    '  float mu = it - log2(log2(m2)) + 4.0;',
+    '  float mu = it - log2(log2(m2)) + 4.0;   // continuous escape count',
     '  float t  = 0.145 * sqrt(max(mu, 0.0)) + u_time * ' + SETTINGS.PALETTE_DRIFT.toFixed(5) + ';',
     '  vec3  col = palette(t);',
     '',
-    '  // Distance estimate: how far this pixel is from the set boundary.',
     '  float dzl = max(length(dz), 1e-12);',
     '  float de  = sqrt(m2) * 0.5 * log(m2) / dzl;',
     '  float dpx = de / max(pixelWorld, 1e-20);   // distance in pixels',
     '',
-    '  // Anti-alias the silhouette, then add a cool halo just outside it.',
     '  col = mix(INK * 1.25, col, smoothstep(0.0, 1.2, dpx));',
     '  col += vec3(0.085, 0.135, 0.225) * exp(-dpx / 9.0) * 0.55;',
     '  return col;',
@@ -315,8 +279,7 @@
     '  vec3 col = acc / float(AA * AA);',
     '',
     '  col = mix(INK, col, u_fade);',
-    '  // Ordered-ish dither: kills 8-bit banding in the large smooth areas.',
-    '  col += (hash21(gl_FragCoord.xy) - 0.5) * (1.0 / 255.0);',
+    '  col += (hash21(gl_FragCoord.xy) - 0.5) * (1.0 / 255.0);   // kill banding',
     '  gl_FragColor = vec4(col, 1.0);',
     '}'
   ].join('\n'); }
@@ -324,18 +287,13 @@
   /* ---------------- GL resources ---------------- */
 
   var UNIFORMS = ['u_res','u_center','u_scale','u_rot','u_iter','u_time','u_fade'];
-  var programs = {};
-  var quad = null;
-  var glReady = false;
+  var programs = {}, quad = null, glReady = false;
 
   function compile(type, src){
     var s = gl.createShader(type);
-    gl.shaderSource(s, src);
-    gl.compileShader(s);
+    gl.shaderSource(s, src); gl.compileShader(s);
     if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)){
-      var log = gl.getShaderInfoLog(s);
-      gl.deleteShader(s);
-      throw new Error(log);
+      var log = gl.getShaderInfoLog(s); gl.deleteShader(s); throw new Error(log);
     }
     return s;
   }
@@ -348,9 +306,7 @@
     gl.linkProgram(prog);
     gl.deleteShader(vs); gl.deleteShader(fs);
     if (!gl.getProgramParameter(prog, gl.LINK_STATUS)){
-      var log = gl.getProgramInfoLog(prog);
-      gl.deleteProgram(prog);
-      throw new Error(log);
+      var log = gl.getProgramInfoLog(prog); gl.deleteProgram(prog); throw new Error(log);
     }
     var entry = { prog: prog, loc: {} };
     for (var i = 0; i < UNIFORMS.length; i++){
@@ -372,7 +328,7 @@
     gl.bufferData(gl.ARRAY_BUFFER,
       new Float32Array([-1,-1, 1,-1, -1,1,  1,-1, 1,1, -1,1]), gl.STATIC_DRAW);
     gl.clearColor(0.014, 0.019, 0.034, 1.0);
-    getProgram(1);            // fail fast if the driver rejects the shader
+    getProgram(1);
     glReady = true;
   }
 
@@ -382,7 +338,7 @@
   /* ---------------- Sizing + adaptive quality ---------------- */
 
   var tier = coarse ? 1 : 2;
-  var maxTier = coarse ? 2 : 3;      // no supersampling on touch devices
+  var maxTier = coarse ? 2 : 3;
   var vw = 0, vh = 0;
 
   function resize(){
@@ -398,8 +354,7 @@
       h = Math.max(2, Math.round(h * k));
     }
     if (canvas.width !== w || canvas.height !== h){
-      canvas.width = w; canvas.height = h;
-      gl.viewport(0, 0, w, h);
+      canvas.width = w; canvas.height = h; gl.viewport(0, 0, w, h);
     }
     vw = w; vh = h;
   }
@@ -410,7 +365,7 @@
 
   var frameMs = 16.7, qSamples = 0, qCooldown = 0;
   function updateQuality(dtMs){
-    frameMs += (Math.min(dtMs, 100) - frameMs) * 0.06;   // smoothed frame time
+    frameMs += (Math.min(dtMs, 100) - frameMs) * 0.06;
     qSamples++; qCooldown += dtMs;
     if (qSamples < 60 || qCooldown < 2500) return;
     if (frameMs > 26 && tier > 0){ tier--; qSamples = 0; qCooldown = 0; resize(); }
@@ -419,19 +374,53 @@
 
   /* ---------------- Precision guard ----------------
      A GPU float holds ~7 significant digits. Once one screen pixel is
-     narrower than the gap between two representable numbers near the
-     dive centre, neighbouring pixels collapse onto the same value and
-     the image goes blocky. This computes that floor so every dive stops
-     while it is still crisp, instead of ending in mush.               */
-  function precisionFloor(center){
-    var mag = Math.max(Math.abs(center[0]), Math.abs(center[1]), 0.5);
-    var eps = Math.pow(2, Math.floor(Math.log2(mag)) - 23);  // float32 step near mag
-    return eps * Math.max(vh, 2);                            // one pixel's worth
+     narrower than the gap between two representable numbers near the view
+     centre, neighbouring pixels collapse onto the same value and the image
+     goes blocky. This is that floor, so a dive stops while still crisp.  */
+  function precisionFloor(cx, cy){
+    var mag = Math.max(Math.abs(cx), Math.abs(cy), 0.5);
+    var eps = Math.pow(2, Math.floor(Math.log2(mag)) - 23);
+    return eps * Math.max(vh, 2);
+  }
+
+  /* ---------------- Boundary probe ----------------
+     Iterates the view centre in double precision (far more headroom than
+     the shader's floats) to find how far the centre sits from the edge of
+     the set, and which way that edge lies. This is what lets the pointer
+     steer freely without ever flying into empty space: whatever direction
+     you aim, the view is pulled back onto the boundary, where the
+     structure is.                                                        */
+  function probe(cx, cy){
+    var zx = 0, zy = 0, dx = 0, dy = 0;   // z and dz/dc
+    var iters = SETTINGS.PROBE_ITERS;
+    for (var i = 0; i < iters; i++){
+      var ndx = 2 * (zx*dx - zy*dy) + 1;
+      var ndy = 2 * (zx*dy + zy*dx);
+      dx = ndx; dy = ndy;
+      var nzx = zx*zx - zy*zy + cx;
+      var nzy = 2*zx*zy + cy;
+      zx = nzx; zy = nzy;
+      var m2 = zx*zx + zy*zy;
+      if (m2 > 1e12){
+        var dm2 = dx*dx + dy*dy;
+        if (!isFinite(dm2) || dm2 === 0) return { inside:false, de:0, ux:0, uy:0 };
+        var m = Math.sqrt(m2);
+        var de = m * Math.log(m) / Math.sqrt(dm2);
+        // grad(log|z|) = conj(dz/z); the set lies the other way.
+        var wr = (dx*zx + dy*zy) / m2;
+        var wi = (dy*zx - dx*zy) / m2;
+        var gl_ = Math.sqrt(wr*wr + wi*wi);
+        if (!isFinite(de) || gl_ === 0) return { inside:false, de:0, ux:0, uy:0 };
+        return { inside:false, de:de, ux:-wr/gl_, uy:wi/gl_ };
+      }
+      if (!isFinite(m2)) return { inside:false, de:0, ux:0, uy:0 };
+    }
+    return { inside:true, de:0, ux:0, uy:0 };
   }
 
   /* ---------------- Dive targets ----------------
-     Kept to |coordinate| < 1 where possible: numbers below 1.0 carry
-     more float precision, which buys a deeper crisp zoom.             */
+     Kept to |coordinate| < 1 where possible: numbers below 1.0 carry more
+     float precision, which buys a deeper crisp zoom.                     */
   var spots = [
     { name:'Seahorse Valley',  c:[-0.743643887037151,  0.131825904205330] },
     { name:'Elephant Valley',  c:[-0.745290000000000,  0.112720000000000] },
@@ -451,16 +440,16 @@
     return spots[i].c.slice();
   }
 
-  /* ---------------- Animation state ---------------- */
+  /* ---------------- State ---------------- */
 
   function clamp(v, a, b){ return v < a ? a : (v > b ? b : v); }
   function smoothstep(a, b, x){ var t = clamp((x - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); }
 
-  var clock = 0;                 // advances only while visible — no jumps on tab return
+  var clock = 0;                 // advances only while visible
   var diveStart = 0;
   var center = pickNewCenter();
+  var lastOutside = center.slice();
   var currentScale = SETTINGS.START_SCALE;
-  var endScale = SETTINGS.END_SCALE;
 
   var expertMode = false;
   var speedMult = 1.0;
@@ -469,21 +458,130 @@
   var rotOverride = null;
   var firstFrame = true;
 
-  function diveEndScale(){
-    return Math.max(SETTINGS.END_SCALE, precisionFloor(center) * 1.6);
-  }
-  endScale = diveEndScale();
+  var pointer = { x:0, y:0, active:false };
+  var steerX = 0, steerY = 0;
 
   function rotationAt(t){
     return SETTINGS.ROT_A * Math.sin(t * SETTINGS.ROT_WA)
          + SETTINGS.ROT_B * Math.sin(t * SETTINGS.ROT_WB + 1.7);
   }
-
-  // The rotation actually on screen right now — pan/zoom must undo it so
-  // the point under the cursor is the point that moves.
   function effectiveRot(){
     return (expertMode && rotOverride !== null) ? rotOverride : rotationAt(clock);
   }
+
+  /* ---------------- Steering ---------------- */
+
+  function steerTarget(){
+    var tx = 0, ty = 0;
+    if (pointer.active){
+      var w = Math.max(canvas.clientWidth, 1), h = Math.max(canvas.clientHeight, 1);
+      tx = (pointer.x - w * 0.5) / (w * 0.5);
+      ty = (pointer.y - h * 0.5) / (h * 0.5);
+      var r = Math.sqrt(tx*tx + ty*ty);
+      if (r < SETTINGS.STEER_DEADZONE){ tx = 0; ty = 0; }
+      else {
+        var k = Math.min(1, (r - SETTINGS.STEER_DEADZONE) / (1 - SETTINGS.STEER_DEADZONE)) / r;
+        tx *= k; ty *= k;
+      }
+    }
+    return [clamp(tx, -1, 1), clamp(ty, -1, 1)];
+  }
+
+  function applySteering(dt, scale){
+    var t = steerTarget();
+    var a = 1 - Math.exp(-SETTINGS.STEER_SMOOTH * dt);
+    steerX += (t[0] - steerX) * a;
+    steerY += (t[1] - steerY) * a;
+    if (steerX === 0 && steerY === 0) return;
+
+    var rot = effectiveRot(), cs = Math.cos(rot), sn = Math.sin(rot);
+    var m = SETTINGS.STEER_RATE * scale * dt;
+    var sx = steerX * m, sy = -steerY * m;      // screen y is down, world y is up
+    center[0] += ( cs * sx + sn * sy);
+    center[1] += (-sn * sx + cs * sy);
+  }
+
+  // Walk the segment a->b (a outside, b inside) down to the boundary.
+  function bisectToEdge(ax, ay, bx, by){
+    for (var i = 0; i < 14; i++){
+      var mx = (ax + bx) * 0.5, my = (ay + by) * 0.5;
+      if (probe(mx, my).inside){ bx = mx; by = my; } else { ax = mx; ay = my; }
+    }
+    center[0] = ax; center[1] = ay;
+    lastOutside[0] = ax; lastOutside[1] = ay;
+  }
+
+  /* The centre is inside the set - several of the dive targets are, since
+     they sit exactly on the edge. March outward until we cross out, then
+     bisect back. Without this, steering has no traction on those targets:
+     every direction leads deeper in and gets refused. Preferred direction
+     first, then a sweep, so it always finds a way out. */
+  function surface(scale, dirX, dirY){
+    var dirs = [], len = Math.sqrt(dirX*dirX + dirY*dirY);
+    if (len > 1e-9) dirs.push([dirX/len, dirY/len]);
+    for (var a = 0; a < 8; a++){
+      dirs.push([Math.cos(a * Math.PI / 4), Math.sin(a * Math.PI / 4)]);
+    }
+    for (var d = 0; d < dirs.length; d++){
+      var step = scale * 1e-6, limit = scale * 2;
+      for (var k = 0; k < 26 && step < limit; k++, step *= 2){
+        var px = center[0] + dirs[d][0] * step;
+        var py = center[1] + dirs[d][1] * step;
+        if (!probe(px, py).inside){
+          bisectToEdge(px, py, center[0], center[1]);
+          return true;
+        }
+      }
+    }
+    return false;
+  }
+
+  /* Steering straight into the set used to be refused outright, which on a
+     phone reads as a dead tap. Instead keep the part of the intended move
+     that runs along the edge: take the boundary normal from the distance
+     estimate at the edge point, drop the inward component, and try the
+     remainder. It is accepted only if it still lands outside the set. */
+  function slideAlongEdge(fromX, fromY, triedX, triedY){
+    var ex = center[0], ey = center[1];                 // edge point after the bisect
+    var q = probe(ex, ey);
+    if (q.inside || (q.ux === 0 && q.uy === 0)) return;
+    var dx = triedX - fromX, dy = triedY - fromY;       // what the steering wanted
+    var along = dx * q.ux + dy * q.uy;                  // component into the set
+    var tx = dx - along * q.ux, ty = dy - along * q.uy; // component along the edge
+    if (tx*tx + ty*ty < 1e-30) return;
+    var cx = ex + tx, cy = ey + ty;
+    if (!probe(cx, cy).inside){
+      center[0] = cx; center[1] = cy;
+      lastOutside[0] = cx; lastOutside[1] = cy;
+    }
+  }
+
+  /* Keep the view centre glued to the fractal boundary. */
+  function autopilot(dt, scale, prevX, prevY){
+    var p = probe(center[0], center[1]);
+
+    if (p.inside){
+      if (!probe(prevX, prevY).inside){
+        var triedX = center[0], triedY = center[1];
+        bisectToEdge(prevX, prevY, triedX, triedY);          // just crossed in
+        slideAlongEdge(prevX, prevY, triedX, triedY);
+      } else if (!surface(scale, steerX, -steerY)){
+        center[0] = prevX; center[1] = prevY;               // nothing found: hold
+      }
+      return;
+    }
+
+    lastOutside[0] = center[0]; lastOutside[1] = center[1];
+
+    var want = SETTINGS.EDGE_TARGET * scale;
+    if (p.de > want){
+      var step = Math.min(p.de - want, scale * 1.5) * (1 - Math.exp(-SETTINGS.EDGE_RATE * dt));
+      center[0] += p.ux * step;
+      center[1] += p.uy * step;
+    }
+  }
+
+  /* ---------------- Frame ---------------- */
 
   function drawFrame(dt){
     resize();
@@ -492,7 +590,7 @@
     var scale, fade, rot;
 
     if (expertMode){
-      var floorScale = precisionFloor(manualCenter) * 0.55;
+      var floorScale = precisionFloor(manualCenter[0], manualCenter[1]) * 0.55;
       manualScale = clamp(manualScale * Math.exp(-0.22 * speedMult * dt), floorScale, 6.0);
       center = manualCenter;
       scale = manualScale;
@@ -501,13 +599,20 @@
     } else {
       var t = clock - diveStart;
       var u = clamp(t / SETTINGS.DIVE_SECONDS, 0, 1);
-      var eased = u * u * (3 - 2 * u);                    // ease in AND out
-      scale = SETTINGS.START_SCALE * Math.pow(endScale / SETTINGS.START_SCALE, eased);
+      var eased = u * u * (3 - 2 * u);                     // ease in AND out
+      scale = SETTINGS.START_SCALE *
+              Math.pow(SETTINGS.END_SCALE / SETTINGS.START_SCALE, eased);
+      // The centre moves as you steer, so re-check the float floor live.
+      scale = Math.max(scale, precisionFloor(center[0], center[1]) * 1.6);
       fade = Math.min(
         smoothstep(0, SETTINGS.FADE_SECONDS, t),
         smoothstep(0, SETTINGS.FADE_SECONDS, SETTINGS.DIVE_SECONDS - t)
       );
-      rot = rotationAt(clock);
+      rot = effectiveRot();
+
+      var prevX = center[0], prevY = center[1];
+      applySteering(dt, scale);
+      autopilot(dt, scale, prevX, prevY);
     }
 
     currentScale = scale;
@@ -534,10 +639,10 @@
 
     if (firstFrame){ firstFrame = false; canvas.classList.add('ready'); }
 
-    // Swap targets while the screen is fully faded out — the cut is invisible.
+    // Swap targets while fully faded out, so the cut is invisible.
     if (!expertMode && (clock - diveStart) >= SETTINGS.DIVE_SECONDS){
       center = pickNewCenter();
-      endScale = diveEndScale();
+      lastOutside = center.slice();
       diveStart = clock;
     }
   }
@@ -548,9 +653,8 @@
     center = spots[0].c.slice();
     manualCenter = center.slice();
     resize();
-    // A single, calm, fully faded-in frame. No animation loop at all.
-    var still = { scale: 0.0075 };
-    (function drawStill(){
+    var drawStill = function(){
+      resize();
       var P = getProgram(1);
       gl.useProgram(P.prog);
       gl.bindBuffer(gl.ARRAY_BUFFER, quad);
@@ -558,15 +662,16 @@
       gl.vertexAttribPointer(P.aPos, 2, gl.FLOAT, false, 0, 0);
       gl.uniform2f(P.loc.u_res, vw, vh);
       gl.uniform2f(P.loc.u_center, center[0], center[1]);
-      gl.uniform1f(P.loc.u_scale, still.scale);
+      gl.uniform1f(P.loc.u_scale, 0.0075);
       gl.uniform1f(P.loc.u_rot, 0.35);
       gl.uniform1f(P.loc.u_iter, 420);
       gl.uniform1f(P.loc.u_time, 0);
       gl.uniform1f(P.loc.u_fade, 1);
       gl.drawArrays(gl.TRIANGLES, 0, 6);
       canvas.classList.add('ready');
-    })();
-    window.addEventListener('resize', function(){ resize(); drawStill(); });
+    };
+    drawStill();
+    window.addEventListener('resize', drawStill);
     return;
   }
 
@@ -579,10 +684,10 @@
     rafId = requestAnimationFrame(loop);
     var now = performance.now() / 1000;
     var gap = now - lastDraw;
-    if (gap < MIN_FRAME - 0.0005) return;      // hold at the fps cap
+    if (gap < MIN_FRAME - 0.0005) return;
     lastDraw = now;
     updateQuality(gap * 1000);
-    drawFrame(Math.min(gap, 0.1));             // clamp: never leap after a stall
+    drawFrame(Math.min(gap, 0.1));
   }
 
   function start(){
@@ -592,16 +697,10 @@
     frameMs = 16.7; qSamples = 0; qCooldown = 0;
     rafId = requestAnimationFrame(loop);
   }
-  function stop(){
-    if (!running) return;
-    running = false;
-    cancelAnimationFrame(rafId);
-  }
+  function stop(){ if (!running) return; running = false; cancelAnimationFrame(rafId); }
 
   start();
 
-  // Pausing keeps `clock` frozen, so returning to the tab resumes the
-  // dive exactly where it left off rather than snapping forward.
   document.addEventListener('visibilitychange', function(){
     if (document.hidden) stop(); else start();
   });
@@ -609,11 +708,44 @@
   canvas.addEventListener('webglcontextlost', function(e){
     e.preventDefault(); stop(); glReady = false;
   }, false);
-
   canvas.addEventListener('webglcontextrestored', function(){
     try { setupResources(); resize(); start(); }
     catch (err){ if (window.console) console.warn('Context restore failed:', err); }
   }, false);
+
+  /* ---------------- Pointer and touch input ---------------- */
+
+  window.addEventListener('mousemove', function(e){
+    if (expertMode) return;
+    pointer.x = e.clientX; pointer.y = e.clientY; pointer.active = true;
+  }, { passive:true });
+
+  window.addEventListener('mouseleave', function(){ pointer.active = false; });
+  document.addEventListener('mouseleave', function(){ pointer.active = false; });
+  window.addEventListener('blur', function(){ pointer.active = false; });
+
+  // Touch: a tap aims the dive and the aim holds after the finger lifts, so
+  // one tap is enough on a phone. Dragging re-aims continuously. There is
+  // deliberately no touchend handler: lifting the finger changes nothing.
+  function aimAt(touches){
+    if (expertMode || !touches.length) return;
+    pointer.x = touches[0].clientX; pointer.y = touches[0].clientY;
+    pointer.active = true;
+  }
+  window.addEventListener('touchstart', function(e){ aimAt(e.touches); }, { passive:true });
+  window.addEventListener('touchmove',  function(e){ aimAt(e.touches); }, { passive:true });
+
+  // A small ring where you tapped or clicked: the only feedback, no words.
+  var ring = document.getElementById('tap-ring');
+  window.addEventListener('pointerdown', function(e){
+    if (expertMode || !ring) return;
+    if (e.target && e.target.closest && e.target.closest('.mb-ui')) return;
+    ring.style.left = e.clientX + 'px';
+    ring.style.top  = e.clientY + 'px';
+    ring.classList.remove('ping');
+    void ring.offsetWidth;                 // restart the animation
+    ring.classList.add('ping');
+  }, { passive:true });
 
   /* ---------------- Public API for the Expert UI ---------------- */
 
@@ -623,11 +755,13 @@
       if (expertMode){
         manualScale = currentScale;
         manualCenter = center.slice();
+        pointer.active = false;
+        steerX = 0; steerY = 0;
       } else {
-        // Rejoin the automatic dive from the current depth, smoothly.
         center = pickNewCenter();
-        endScale = diveEndScale();
+        lastOutside = center.slice();
         rotOverride = null;
+        steerX = 0; steerY = 0;
         diveStart = clock;
       }
     },
@@ -638,16 +772,17 @@
         center: center.slice(),
         scale: currentScale,
         zoom: SETTINGS.START_SCALE / currentScale,
+        steer: [steerX, steerY],
+        pointerActive: pointer.active,
         atDepthLimit: expertMode &&
-          currentScale <= precisionFloor(manualCenter) * 0.56,
+          currentScale <= precisionFloor(manualCenter[0], manualCenter[1]) * 0.56,
         canvas: canvas,
         spots: spots
       };
     },
     pan: function(dx, dy){
       var perPixel = currentScale / Math.max(canvas.clientHeight, 1);
-      var rot = effectiveRot();
-      var cs = Math.cos(rot), sn = Math.sin(rot);
+      var rot = effectiveRot(), cs = Math.cos(rot), sn = Math.sin(rot);
       var sx = dx * perPixel, sy = -dy * perPixel;
       manualCenter[0] -= ( cs * sx + sn * sy);
       manualCenter[1] -= (-sn * sx + cs * sy);
@@ -658,18 +793,16 @@
       var x = (clientX - rect.left) * (vw / rect.width);
       var y = (clientY - rect.top)  * (vh / rect.height);
       var perPixel = manualScale / Math.max(vh, 1);
-      var rot = effectiveRot();
-      var cs = Math.cos(rot), sn = Math.sin(rot);
+      var rot = effectiveRot(), cs = Math.cos(rot), sn = Math.sin(rot);
       var px = (x - vw * 0.5) * perPixel;
       var py = (vh * 0.5 - y) * perPixel;
-      // Undo the view rotation so the point under the cursor stays put.
       var wx =  cs * px + sn * py;
       var wy = -sn * px + cs * py;
       var k = 1.0 - 1.0 / factor;
       manualCenter[0] += wx * k;
       manualCenter[1] += wy * k;
       manualScale = clamp(manualScale / factor,
-                          precisionFloor(manualCenter) * 0.55, 6.0);
+        precisionFloor(manualCenter[0], manualCenter[1]) * 0.55, 6.0);
     },
     setRotation: function(r){ rotOverride = r; },
     resetRotation: function(){ rotOverride = null; },
@@ -679,7 +812,7 @@
       manualCenter = s.c.slice();
       manualScale = SETTINGS.START_SCALE;
       center = manualCenter.slice();
-      endScale = diveEndScale();
+      lastOutside = center.slice();
       diveStart = clock;
     }
   };
@@ -710,14 +843,16 @@
       <button id="mb-zoom-out" class="mb-btn" title="Zoom out" aria-label="Zoom out">−</button>
       <button id="mb-reset-rot" class="mb-btn" title="Reset rotation" aria-label="Reset rotation">⟳</button>
     </div>
-    <div class="mb-hint">Scroll or pinch to zoom. Drag to pan. Arrow keys pan, Shift for faster.</div>
+    <div class="mb-hint">Manual control — pointer steering is paused. Scroll or pinch to zoom, drag to pan, arrow keys pan.</div>
   </div>
 </div>
 
 <script>
 (function(){
   'use strict';
-  if (!window.MB) {
+
+  /* ---- Expert controls ---- */
+  if (!window.MB){
     var ui = document.querySelector('.mb-ui');
     if (ui) ui.style.display = 'none';
     return;
@@ -742,7 +877,6 @@
   });
 
   var enabled = false;
-
   function setEnabled(flag){
     enabled = !!flag;
     toggle.classList.toggle('active', enabled);
@@ -767,12 +901,11 @@
     return '×' + Math.max(1, Math.round(z));
   }
 
-  // Cheap readout: 5 updates a second, and only while the panel is open.
   setInterval(function(){
     if (!enabled) return;
     var st = MB.getState();
     zoomVal.textContent = formatZoom(st.zoom);
-    if (hint) {
+    if (hint){
       hint.textContent = st.atDepthLimit
         ? 'Maximum depth for this renderer — pick another waypoint to keep exploring.'
         : hintText;
@@ -792,7 +925,8 @@
   zoomOut.addEventListener('click', function(){ zoomFromCentre(1 / 1.3); });
   resetRot.addEventListener('click', function(){ MB.resetRotation(); });
 
-  // --- Wheel ---
+  function clampNum(v, a, b){ return v < a ? a : (v > b ? b : v); }
+
   window.addEventListener('wheel', function(e){
     if (!enabled || panel.contains(e.target)) return;
     e.preventDefault();
@@ -800,9 +934,6 @@
     MB.zoomAt(e.clientX, e.clientY, Math.exp(-step * 0.28));
   }, { passive:false });
 
-  function clampNum(v, a, b){ return v < a ? a : (v > b ? b : v); }
-
-  // --- Mouse drag ---
   var dragging = false, lastX = 0, lastY = 0;
   window.addEventListener('mousedown', function(e){
     if (!enabled || panel.contains(e.target) || toggle.contains(e.target)) return;
@@ -815,20 +946,16 @@
     lastX = e.clientX; lastY = e.clientY;
   });
   window.addEventListener('mouseup', function(){
-    dragging = false;
-    document.body.classList.remove('mb-dragging');
+    dragging = false; document.body.classList.remove('mb-dragging');
   });
 
-  // --- Touch: pan + pinch ---
   var pinchBase = null, tx = 0, ty = 0;
   window.addEventListener('touchstart', function(e){
     if (!enabled || panel.contains(e.target)) return;
-    if (e.touches.length === 1){
-      tx = e.touches[0].clientX; ty = e.touches[0].clientY;
-    } else if (e.touches.length === 2){
-      pinchBase = Math.hypot(
-        e.touches[1].clientX - e.touches[0].clientX,
-        e.touches[1].clientY - e.touches[0].clientY);
+    if (e.touches.length === 1){ tx = e.touches[0].clientX; ty = e.touches[0].clientY; }
+    else if (e.touches.length === 2){
+      pinchBase = Math.hypot(e.touches[1].clientX - e.touches[0].clientX,
+                             e.touches[1].clientY - e.touches[0].clientY);
     }
   }, { passive:true });
 
@@ -837,12 +964,10 @@
     e.preventDefault();
     if (e.touches.length === 1){
       var x = e.touches[0].clientX, y = e.touches[0].clientY;
-      MB.pan(x - tx, y - ty);
-      tx = x; ty = y;
+      MB.pan(x - tx, y - ty); tx = x; ty = y;
     } else if (e.touches.length === 2 && pinchBase){
-      var dist = Math.hypot(
-        e.touches[1].clientX - e.touches[0].clientX,
-        e.touches[1].clientY - e.touches[0].clientY);
+      var dist = Math.hypot(e.touches[1].clientX - e.touches[0].clientX,
+                            e.touches[1].clientY - e.touches[0].clientY);
       var factor = clampNum(dist / pinchBase, 1 / 1.5, 1.5);
       MB.zoomAt((e.touches[0].clientX + e.touches[1].clientX) / 2,
                 (e.touches[0].clientY + e.touches[1].clientY) / 2, factor);
@@ -852,7 +977,6 @@
 
   window.addEventListener('touchend', function(){ pinchBase = null; }, { passive:true });
 
-  // --- Keyboard ---
   window.addEventListener('keydown', function(e){
     if (e.key === 'Escape' && enabled){ setEnabled(false); return; }
     if (!enabled) return;
