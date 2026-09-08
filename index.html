@@ -4,8 +4,8 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
 <meta name="theme-color" content="#050810" />
-<meta name="description" content="sASCH — Technology Solutions, Automation, Innovative Projects." />
-<title>sASCH</title>
+<meta name="description" content="An endless dive into the Mandelbrot set. Move the mouse, or tap, to steer." />
+<title>sASCH – Mandelbrot</title>
 <style>
   /* ============================================================
      Tokens
@@ -14,18 +14,15 @@
     --ink:#050810;
     --font: ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI",
             Inter, Roboto, Helvetica, Arial, sans-serif;
-    --nav-h: 72px;
-    --line: rgba(180,205,255,.10);
-    --txt: rgba(233,240,255,.74);
-    --txt-hi: #f2f6ff;
   }
 
   *,*::before,*::after{ box-sizing:border-box; }
 
   html{ height:100%; }
   body{
-    height:100%; margin:0; color-scheme:dark;
+    height:100%; margin:0; color-scheme:dark; overflow:hidden;
     font-family: var(--font);
+    overscroll-behavior:none; touch-action:manipulation;
     /* Behind the canvas: the page still reads as designed with no WebGL. */
     background:
       radial-gradient(125% 90% at 50% 0%, #101c38 0%, #070c18 46%, #04060d 100%);
@@ -39,96 +36,22 @@
   }
   #mb-canvas.ready{ opacity:1; }
 
-  /* ---------- Scrim: vignette, plus a wash under the bar ---------- */
+  /* ---------- Scrim: a soft vignette, nothing else on screen ---------- */
   .scrim{
     position:fixed; inset:0; z-index:2; pointer-events:none;
     background:
-      radial-gradient(125% 80% at 50% 46%,
-        rgba(4,6,13,0) 32%, rgba(4,6,13,.26) 74%, rgba(4,6,13,.62) 100%),
-      linear-gradient(to bottom,
-        rgba(4,6,13,.50) 0%, rgba(4,6,13,.14) 16%, rgba(4,6,13,0) 30%);
+      radial-gradient(125% 80% at 50% 50%,
+        rgba(4,6,13,0) 40%, rgba(4,6,13,.22) 78%, rgba(4,6,13,.55) 100%);
   }
 
-  /* ============================================================
-     PLACEHOLDER NAVIGATION
-     Labels and links below are stand-ins. Replace the <a> text and
-     href values with the real menu; the layout needs no other change.
-     ============================================================ */
-  .nav{
-    position:fixed; top:0; left:0; right:0; z-index:10;
-    display:flex; align-items:center; justify-content:space-between; gap:24px;
-    min-height:var(--nav-h); padding:0 clamp(18px,4vw,52px);
-    padding-top: env(safe-area-inset-top, 0px);
-    -webkit-backdrop-filter:blur(14px) saturate(125%);
-    backdrop-filter:blur(14px) saturate(125%);
-    background:linear-gradient(to bottom, rgba(6,10,20,.60), rgba(6,10,20,.20));
-    border-bottom:1px solid var(--line);
+  /* ---------- Tap ring: the only acknowledgement, and it has no words ---------- */
+  .tap-ring{
+    position:fixed; left:0; top:0; z-index:3; pointer-events:none;
+    width:44px; height:44px; margin:-22px 0 0 -22px; border-radius:50%;
+    border:1.5px solid rgba(190,215,255,.8); opacity:0; transform:scale(.4);
   }
-
-  .nav-brand{
-    display:flex; align-items:center; gap:10px; text-decoration:none;
-    position:relative; z-index:2;   /* stays above the open mobile panel */
-  }
-  .nav-logo{ height:26px; width:auto; display:block; filter:drop-shadow(0 1px 8px rgba(0,0,0,.5)); }
-  .nav-wordmark{
-    font-size:17px; font-weight:300; letter-spacing:.13em; color:var(--txt-hi);
-  }
-
-  .nav-links{ display:flex; align-items:center; gap:clamp(16px,2.3vw,32px); }
-  .nav-links a{
-    position:relative; text-decoration:none; color:var(--txt);
-    font-size:12px; font-weight:400; letter-spacing:.16em; text-transform:uppercase;
-    padding:6px 0; transition:color .25s ease; white-space:nowrap;
-  }
-  .nav-links a::after{
-    content:''; position:absolute; left:0; right:100%; bottom:0; height:1px;
-    background:rgba(150,190,255,.65);
-    transition:right .32s cubic-bezier(.22,.61,.36,1);
-  }
-  .nav-links a:hover{ color:var(--txt-hi); }
-  .nav-links a:hover::after{ right:0; }
-  .nav-links a:focus-visible{ outline:2px solid rgba(120,170,255,.75); outline-offset:4px; }
-
-  .nav-links a.nav-cta{
-    color:var(--txt-hi); padding:9px 18px; letter-spacing:.12em;
-    border:1px solid rgba(180,205,255,.26); border-radius:999px;
-    background:rgba(160,190,255,.08);
-    transition:background .25s ease, border-color .25s ease;
-  }
-  .nav-links a.nav-cta::after{ content:none; }
-  .nav-links a.nav-cta:hover{ background:rgba(160,190,255,.18); border-color:rgba(180,205,255,.48); }
-
-  .nav-burger{
-    display:none; width:42px; height:42px; padding:0;
-    position:relative; z-index:2;   /* stays above the open mobile panel */
-    flex-direction:column; align-items:center; justify-content:center; gap:5px;
-    cursor:pointer; border-radius:11px;
-    background:rgba(160,190,255,.08); border:1px solid rgba(180,205,255,.16);
-  }
-  .nav-burger span{
-    display:block; width:16px; height:1.5px; border-radius:2px; background:#dfe8ff;
-    transition:transform .3s cubic-bezier(.22,.61,.36,1);
-  }
-  .nav-burger[aria-expanded="true"] span:nth-child(1){ transform:translateY(3.25px) rotate(45deg); }
-  .nav-burger[aria-expanded="true"] span:nth-child(2){ transform:translateY(-3.25px) rotate(-45deg); }
-  .nav-burger:focus-visible{ outline:2px solid rgba(120,170,255,.75); outline-offset:2px; }
-
-  @media (max-width: 860px){
-    .nav-burger{ display:flex; }
-    .nav-links{
-      position:fixed; top:0; left:0; right:0; z-index:1;
-      flex-direction:column; align-items:flex-start; gap:0;
-      padding: calc(var(--nav-h) + 16px + env(safe-area-inset-top,0px)) 28px 30px;
-      background:rgba(6,10,20,.88);
-      -webkit-backdrop-filter:blur(18px); backdrop-filter:blur(18px);
-      border-bottom:1px solid var(--line);
-      transform:translateY(-102%);
-      transition:transform .42s cubic-bezier(.22,.61,.36,1);
-    }
-    .nav-links.open{ transform:none; }
-    .nav-links a{ width:100%; font-size:15px; letter-spacing:.14em; padding:15px 0; }
-    .nav-links a.nav-cta{ width:auto; margin-top:16px; padding:12px 22px; }
-  }
+  .tap-ring.ping{ animation:tapPing 650ms cubic-bezier(.2,.6,.3,1) forwards; }
+  @keyframes tapPing{ from{opacity:.85; transform:scale(.4);} to{opacity:0; transform:scale(1.4);} }
 
   /* ============================================================
      Expert UI
@@ -187,7 +110,7 @@
 
   @media (prefers-reduced-motion: reduce){
     #mb-canvas{ transition:none; }
-    .nav-links{ transition:none; }
+    .tap-ring{ display:none; }
     .mb-panel.on{ animation:none; }
   }
 </style>
@@ -199,31 +122,7 @@
 
 <!-- Vignette -->
 <div class="scrim" aria-hidden="true"></div>
-
-<!-- ============================================================
-     PLACEHOLDER MENU — swap the labels and hrefs for the real ones.
-     ============================================================ -->
-<header class="nav">
-  <a class="nav-brand" href="#" aria-label="sASCH home">
-    <img class="nav-logo" alt="sASCH" decoding="async"
-         src="https://sasch.odoo.com/web/image/website/1/logo/sasch.ca?unique=83efd14"
-         onerror="this.remove();var w=document.getElementById('nav-wordmark');if(w)w.hidden=false;">
-    <span class="nav-wordmark" id="nav-wordmark" hidden>sASCH</span>
-  </a>
-
-  <nav class="nav-links" id="nav-links" aria-label="Main">
-    <a href="#">Solutions</a>
-    <a href="#">Automation</a>
-    <a href="#">Projects</a>
-    <a href="#">About</a>
-    <a class="nav-cta" href="#">Get in touch</a>
-  </nav>
-
-  <button class="nav-burger" id="nav-burger" type="button"
-          aria-expanded="false" aria-controls="nav-links" aria-label="Open menu">
-    <span></span><span></span>
-  </button>
-</header>
+<div class="tap-ring" id="tap-ring" aria-hidden="true"></div>
 
 <!-- ============================================================
      Mandelbrot renderer
@@ -250,7 +149,10 @@
     ROT_A: 0.42, ROT_WA: 0.019,
     ROT_B: 0.21, ROT_WB: 0.0073,
 
-    /* --- Steering: the pointer (or a tilt) aims the dive --- */
+    /* --- Steering: the pointer aims the dive. On a mouse, where the
+       pointer rests relative to the centre of the screen is the direction.
+       On touch, the last tap is the direction, and it holds until the next
+       tap; a tap near the centre dives straight ahead. --- */
     STEER_RATE:     0.18,     // view-heights per second at full deflection
     STEER_DEADZONE: 0.10,     // pointer resting near centre dives straight
     STEER_SMOOTH:   4.5,      // higher = snappier, lower = more gliding
@@ -258,14 +160,7 @@
     /* --- Autopilot: keeps the view on the fractal boundary --- */
     EDGE_TARGET:    0.14,     // boundary sits this many view-heights off centre
     EDGE_RATE:      3.2,      // how briskly it corrects
-    PROBE_ITERS:    900,
-
-    /* --- Motion sensor ---
-       iOS requires a permission prompt triggered by a tap, which is not
-       something a homepage should throw at a first-time visitor, so tilt
-       stays off there and touch-drag steers instead. Set this true to ask. */
-    ASK_FOR_MOTION: false,
-    TILT_RANGE:     22        // degrees of tilt for full deflection
+    PROBE_ITERS:    900
   };
 
   var QUALITY = [
@@ -564,7 +459,6 @@
   var firstFrame = true;
 
   var pointer = { x:0, y:0, active:false };
-  var tilt = { active:false, x:0, y:0, baseB:null, baseG:null };
   var steerX = 0, steerY = 0;
 
   function rotationAt(t){
@@ -589,8 +483,6 @@
         var k = Math.min(1, (r - SETTINGS.STEER_DEADZONE) / (1 - SETTINGS.STEER_DEADZONE)) / r;
         tx *= k; ty *= k;
       }
-    } else if (tilt.active){
-      tx = tilt.x; ty = tilt.y;
     }
     return [clamp(tx, -1, 1), clamp(ty, -1, 1)];
   }
@@ -799,7 +691,7 @@
     catch (err){ if (window.console) console.warn('Context restore failed:', err); }
   }, false);
 
-  /* ---------------- Pointer + tilt input ---------------- */
+  /* ---------------- Pointer and touch input ---------------- */
 
   window.addEventListener('mousemove', function(e){
     if (expertMode) return;
@@ -810,59 +702,28 @@
   document.addEventListener('mouseleave', function(){ pointer.active = false; });
   window.addEventListener('blur', function(){ pointer.active = false; });
 
-  // Touch: a finger steers while it is down, and the drift eases off on lift.
-  window.addEventListener('touchstart', function(e){
-    if (expertMode || !e.touches.length) return;
-    pointer.x = e.touches[0].clientX; pointer.y = e.touches[0].clientY;
+  // Touch: a tap aims the dive and the aim holds after the finger lifts, so
+  // one tap is enough on a phone. Dragging re-aims continuously. There is
+  // deliberately no touchend handler: lifting the finger changes nothing.
+  function aimAt(touches){
+    if (expertMode || !touches.length) return;
+    pointer.x = touches[0].clientX; pointer.y = touches[0].clientY;
     pointer.active = true;
-  }, { passive:true });
-  window.addEventListener('touchmove', function(e){
-    if (expertMode || !e.touches.length) return;
-    pointer.x = e.touches[0].clientX; pointer.y = e.touches[0].clientY;
-    pointer.active = true;
-  }, { passive:true });
-  window.addEventListener('touchend', function(){
-    if (!expertMode) pointer.active = false;
-  }, { passive:true });
-
-  function onOrient(e){
-    if (e.beta === null || e.gamma === null) return;
-    var b = e.beta, g = e.gamma;
-    if (tilt.baseB === null){ tilt.baseB = b; tilt.baseG = g; }
-    // Drift the rest position slowly, so a change of posture does not stick.
-    tilt.baseB += (b - tilt.baseB) * 0.0015;
-    tilt.baseG += (g - tilt.baseG) * 0.0015;
-
-    var gx = clamp((g - tilt.baseG) / SETTINGS.TILT_RANGE, -1, 1);
-    var gy = clamp((b - tilt.baseB) / SETTINGS.TILT_RANGE, -1, 1);
-
-    var ang = (window.screen && window.screen.orientation && window.screen.orientation.angle)
-              || window.orientation || 0;
-    if (ang === 90)       { var s1 = gx; gx = -gy; gy = s1; }
-    else if (ang === 180) { gx = -gx; gy = -gy; }
-    else if (ang === 270 || ang === -90) { var s2 = gx; gx = gy; gy = -s2; }
-
-    tilt.x = Math.abs(gx) < 0.08 ? 0 : gx;
-    tilt.y = Math.abs(gy) < 0.08 ? 0 : gy;
-    tilt.active = true;
   }
+  window.addEventListener('touchstart', function(e){ aimAt(e.touches); }, { passive:true });
+  window.addEventListener('touchmove',  function(e){ aimAt(e.touches); }, { passive:true });
 
-  var needsMotionPermission = typeof window.DeviceOrientationEvent !== 'undefined'
-    && typeof window.DeviceOrientationEvent.requestPermission === 'function';
-
-  if (coarse && typeof window.DeviceOrientationEvent !== 'undefined'){
-    if (!needsMotionPermission){
-      window.addEventListener('deviceorientation', onOrient, true);
-    } else if (SETTINGS.ASK_FOR_MOTION){
-      var askOnce = function(){
-        window.removeEventListener('touchend', askOnce);
-        window.DeviceOrientationEvent.requestPermission().then(function(state){
-          if (state === 'granted') window.addEventListener('deviceorientation', onOrient, true);
-        })['catch'](function(){});
-      };
-      window.addEventListener('touchend', askOnce);
-    }
-  }
+  // A small ring where you tapped or clicked: the only feedback, no words.
+  var ring = document.getElementById('tap-ring');
+  window.addEventListener('pointerdown', function(e){
+    if (expertMode || !ring) return;
+    if (e.target && e.target.closest && e.target.closest('.mb-ui')) return;
+    ring.style.left = e.clientX + 'px';
+    ring.style.top  = e.clientY + 'px';
+    ring.classList.remove('ping');
+    void ring.offsetWidth;                 // restart the animation
+    ring.classList.add('ping');
+  }, { passive:true });
 
   /* ---------------- Public API for the Expert UI ---------------- */
 
@@ -890,7 +751,7 @@
         scale: currentScale,
         zoom: SETTINGS.START_SCALE / currentScale,
         steer: [steerX, steerY],
-        tilt: tilt.active,
+        pointerActive: pointer.active,
         atDepthLimit: expertMode &&
           currentScale <= precisionFloor(manualCenter[0], manualCenter[1]) * 0.56,
         canvas: canvas,
@@ -967,26 +828,6 @@
 <script>
 (function(){
   'use strict';
-
-  /* ---- Placeholder menu behaviour ---- */
-  var burger = document.getElementById('nav-burger');
-  var links  = document.getElementById('nav-links');
-  if (burger && links){
-    var setOpen = function(open){
-      links.classList.toggle('open', open);
-      burger.setAttribute('aria-expanded', open ? 'true' : 'false');
-      burger.setAttribute('aria-label', open ? 'Close menu' : 'Open menu');
-    };
-    burger.addEventListener('click', function(){
-      setOpen(burger.getAttribute('aria-expanded') !== 'true');
-    });
-    links.addEventListener('click', function(e){
-      if (e.target.tagName === 'A') setOpen(false);
-    });
-    document.addEventListener('keydown', function(e){
-      if (e.key === 'Escape') setOpen(false);
-    });
-  }
 
   /* ---- Expert controls ---- */
   if (!window.MB){
