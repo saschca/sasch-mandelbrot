@@ -536,13 +536,35 @@
     return false;
   }
 
+  /* Steering straight into the set used to be refused outright, which on a
+     phone reads as a dead tap. Instead keep the part of the intended move
+     that runs along the edge: take the boundary normal from the distance
+     estimate at the edge point, drop the inward component, and try the
+     remainder. It is accepted only if it still lands outside the set. */
+  function slideAlongEdge(fromX, fromY, triedX, triedY){
+    var ex = center[0], ey = center[1];                 // edge point after the bisect
+    var q = probe(ex, ey);
+    if (q.inside || (q.ux === 0 && q.uy === 0)) return;
+    var dx = triedX - fromX, dy = triedY - fromY;       // what the steering wanted
+    var along = dx * q.ux + dy * q.uy;                  // component into the set
+    var tx = dx - along * q.ux, ty = dy - along * q.uy; // component along the edge
+    if (tx*tx + ty*ty < 1e-30) return;
+    var cx = ex + tx, cy = ey + ty;
+    if (!probe(cx, cy).inside){
+      center[0] = cx; center[1] = cy;
+      lastOutside[0] = cx; lastOutside[1] = cy;
+    }
+  }
+
   /* Keep the view centre glued to the fractal boundary. */
   function autopilot(dt, scale, prevX, prevY){
     var p = probe(center[0], center[1]);
 
     if (p.inside){
       if (!probe(prevX, prevY).inside){
-        bisectToEdge(prevX, prevY, center[0], center[1]);   // just crossed in
+        var triedX = center[0], triedY = center[1];
+        bisectToEdge(prevX, prevY, triedX, triedY);          // just crossed in
+        slideAlongEdge(prevX, prevY, triedX, triedY);
       } else if (!surface(scale, steerX, -steerY)){
         center[0] = prevX; center[1] = prevY;               // nothing found: hold
       }
